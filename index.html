@@ -368,7 +368,7 @@ function load(){try{const r=localStorage.getItem(SAVE_KEY);if(r){S=JSON.parse(r)
     if(!S.mlv)S.mlv={clock:0,cache:0,abus:0,fwall:0,av:0};if(!S.threats)S.threats=[];
     if(Array.isArray(S.nodes))NODES.forEach((n,i)=>{n.level=S.nodes[i]||0;});
     NODES.forEach((n,i)=>{n.unlocked=(i===0)||(NODES[i-1].level>=1);});
-    for(const th of S.threats){if(th.phase===undefined){th.phase="approach";th.spd=30+5*(S.sector||0);th.r0=th.r||120;th.hitT=0;th.dieT=0;}}
+    if(!Array.isArray(S.threats)||S.threats.some(th=>!th||th.lx===undefined||th.r===undefined||th.r>SPAWN_R*1.5))S.threats=[];
     return;}}catch(e){}S=freshState();}
 function save(){try{const out=Object.assign({},S,{nodes:NODES.map(n=>n.level)});localStorage.setItem(SAVE_KEY,JSON.stringify(out));}catch(e){}}
 
@@ -478,21 +478,45 @@ function crash(){
 }
 
 /* ===================== THREATS ===================== */
-const CONTACT_R=34;
+/* Threats live in the 3D scene: r is a WORLD radius from the core.
+   They fly in from the front hemisphere and converge on the monitor. */
+const CONTACT_R=1.00;
+const SPAWN_R=3.20;
+const THREAT_WORLD={ sx0:1.26, sy0:0.30, sz0:0.86, sy1:0.52, sz1:0.16,
+                     sx1:0.52, cy0:0.78, cz0:1.10, cy1:0.26, cz1:0.12 };
+function threatWorld(th){
+  const t=Math.min(1,Math.max(0,(SPAWN_R-th.r)/(SPAWN_R-CONTACT_R)));
+  const e=t*t*(3-2*t);
+  const W2=THREAT_WORLD;
+  const sx0=th.lx*W2.sx0, sy0=W2.cy0+0.26+th.ly*W2.sy1, sz0=W2.sz0+th.ly*W2.sz1;
+  const sx1=th.lx*W2.sx1, sy1=W2.cy0+th.ly*W2.cy1,      sz1=W2.cz0+th.ly*W2.cz1;
+  const lunge=th.phase==="attack"?Math.max(0,Math.sin(S.t*4.2+th.bobPh))*0.045:0;
+  th.wx=sx0+(sx1-sx0)*e;
+  th.wy=sy0+(sy1-sy0)*e + Math.sin(S.t*2.3+th.bobPh)*0.05 - lunge;
+  th.wz=sz0+(sz1-sz0)*e + lunge*3;
+}
+function syncThreatScreen(th){
+  const p=Core3D.project([th.wx,th.wy,th.wz]);
+  if(p&&p.vis){th.x=p.x;th.y=p.y;}else{th.x=-999;th.y=-999;}
+}
 function spawnThreat(){
   const s=sector();
   const hacker=RNG()<0.4;
   const hp=(14*Math.pow(1.55,s))*(hacker?1.6:1)*(1+0.05*Math.min(20,S.totalKills%50));
   const dps=(1.4*Math.pow(1.42,s))*(hacker?1.35:1);
-  const ang=RNG()*Math.PI*2;
-  const R=Math.max(96,120+s*0);
+  let lx=RNG()*2-1;
+  lx=Math.sign(lx||1)*(0.30+0.70*Math.abs(lx));
   const th={
     id:RNG().toString(36).slice(2,8),hpKind:hacker?"hacker":"virus",
-    hp,maxHp:hp,dps,ang, r:R, r0:R, x:0,y:0, dead:false,
-    phase:"approach", hitT:0, dieT:0, spd:58+6*s,
+    hp,maxHp:hp,dps, lx:lx, ly:RNG()*2-1,
+    r:SPAWN_R, wx:0,wy:0.9,wz:1.1, x:0,y:0,
+    phase:"approach", hitT:0, dieT:0, spd:1.15+0.09*s,
+    spin:RNG()*6.2832,
+    spinSpd:(RNG()<0.5?-1:1)*(hacker?0.55:1.15)*(0.8+RNG()*0.6),
+    bobPh:RNG()*6.2832,
     ch:hacker?"\u2620":"\u25C9", color:hacker?"#ffcf4d":"#ff4d6a"
   };
-  th.x=Math.cos(th.ang)*R; th.y=Math.sin(th.ang)*R*0.72;
+  threatWorld(th); syncThreatScreen(th);
   S.threats.push(th);
 }
 function stepThreats(dt){
@@ -506,8 +530,9 @@ function stepThreats(dt){
       burst(th);neutralized(th);
       continue;
     }
+    th.spin+=th.spinSpd*dt;
     if(th.phase==="approach"){
-      th.r-=th.spd*dt;
+      th.r-=th.spd*dt*(1+0.06*sector());
       if(th.r<=CONTACT_R){th.r=CONTACT_R;th.phase="attack";th.hitT=0.22;impact(th,false);}
     }else{
       // in contact: chip away at integrity
@@ -515,8 +540,7 @@ function stepThreats(dt){
       if(th.hitT<=0){impact(th,true);th.hitT=0.42+0.06*RNG();}
       S.integrity-=th.dps*firewallMult()*dt;
     }
-    th.x=Math.cos(th.ang)*th.r;
-    th.y=Math.sin(th.ang)*th.r*0.72;
+    threatWorld(th); syncThreatScreen(th);
   }
   S.threats=S.threats.filter(t=>!(t.phase==="dying"&&t.dieT<=0));
   if(S.integrity<=0){S.integrity=0;crash();}
@@ -531,28 +555,20 @@ function stepThreats(dt){
   if(S.threats.length===0&&S.integrity<100)S.integrity=Math.min(100,S.integrity+3*dt);
 }
 function renderThreats(){
+  /* threats are drawn INSIDE the PS1 3D scene now, not as DOM overlays */
   const L=document.getElementById("threatLayer");
-  const seen=new Set(S.threats.map(t=>t.id));
-  // remove gone
-  [...L.children].forEach(c=>{if(!seen.has(c.dataset.id))L.removeChild(c);});
+  if(L && L.childNodes.length) L.innerHTML="";
+  const list=[];
   for(const th of S.threats){
-    let el=L.querySelector('[data-id="'+th.id+'"]');
-    if(!el){
-      el=document.createElement("div");el.className="th";el.dataset.id=th.id;
-      el.innerHTML='<span class="g"></span><span class="hp"><i></i></span>';
-      L.appendChild(el);
-    }
-    const dying=th.phase==="dying";
-    el.style.left=(124+th.x)+"px"; el.style.top=(81+th.y)+"px";
-    el.style.color=th.color;
-    el.style.opacity=dying?Math.max(0,th.dieT/0.42):1;
-    el.style.transform="translate(-50%,-50%) scale("+(dying?1.7:1)+")";
-    el.classList.toggle("contact",th.phase==="attack");
-    el.classList.toggle("dying",dying);
-    el.querySelector(".g").textContent=th.ch;
-    el.querySelector(".hp i").style.width=Math.max(0,100*th.hp/th.maxHp)+"%";
-    el.querySelector(".hp").style.display=dying?"none":"block";
+    list.push({
+      kind:th.hpKind, wx:th.wx, wy:th.wy, wz:th.wz, r:th.r,
+      scale:th.hpKind==="hacker"?0.9:1.0, spin:th.spin,
+      hpPct:Math.max(0,th.hp/th.maxHp),
+      dying:th.phase==="dying", dieT:th.dieT,
+      contact:th.phase==="attack"
+    });
   }
+  Core3D.setThreats(list);
 }
 
 /* ===================== FX (particles / impacts / breach) ===================== */
@@ -569,7 +585,7 @@ function burst(th){
 function impact(th,atCore){
   const n=atCore?4:6;
   for(let i=0;i<n;i++){
-    const a=(atCore?Math.PI*2*RNG():th.ang+Math.PI)+(RNG()-0.5)*1.2;
+    const a=(atCore?Math.PI*2*RNG():Math.atan2(th.y-CY,th.x-CX)+Math.PI)+(RNG()-0.5)*1.2;
     const sp=18+RNG()*46;
     PFX.push({x:th.x,y:th.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp*0.72,life:0.28+RNG()*0.2,max:0.48,c:atCore?"#54d8ff":"#ffcf4d",s:1.2+RNG()*1.6});
   }
@@ -623,7 +639,7 @@ function renderFx(dt){
 const Core3D=(function(){
   const W=248,H=162;
   const cv=document.getElementById("core3d");
-  if(!cv)return{frame(){},setScreen(){},setBright(){},setFlags(){}};
+  if(!cv)return{frame(){},setScreen(){},setBright(){},setFlags(){},setThreats(){},project(){return {x:-9999,y:-9999,zv:0,k:0,vis:false};}};
   cv.width=W;cv.height=H;
   const ctx=cv.getContext("2d");
   const back=document.createElement("canvas");back.width=W;back.height=H;
@@ -680,7 +696,7 @@ const Core3D=(function(){
   const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
   const nrm=a=>{const l=Math.hypot(a[0],a[1],a[2])||1;return[a[0]/l,a[1]/l,a[2]/l];};
 
-  const camPos=[0,1.30,2.62], camAt=[0,0.66,0.00];
+  const camPos=[0,1.55,3.35], camAt=[0,0.55,0.00];
   const F=nrm(sub(camAt,camPos)), R=nrm(cross(F,[0,1,0])), U=cross(R,F);
   const FOC=(H/2)/Math.tan((42*Math.PI/180)/2);
   const LIGHT=nrm([-0.42,0.82,0.52]);
@@ -730,11 +746,87 @@ const Core3D=(function(){
       const n=nrm([(p[0][0]+p[1][0]+p[2][0])/3-C[0],(p[0][1]+p[1][1]+p[2][1])/3-C[1],(p[0][2]+p[1][2]+p[2][2])/3-C[2]]);
       model.push(face(p,n,[90,235,255],{em:0.85}));
     }
+  })
+
+  /* ---------- low-poly enemy meshes ---------- */
+  function coneFaces(dir,len,base,r0,col,em,nseg){
+    nseg=nseg||3;
+    const d=nrm(dir);
+    const up=Math.abs(d[1])>0.9?[1,0,0]:[0,1,0];
+    const a=nrm(cross(d,up)), b=cross(d,a);
+    const apex=[d[0]*len,d[1]*len,d[2]*len];
+    const ring=[];
+    for(let i=0;i<nseg;i++){
+      const t=i/nseg*Math.PI*2, ca=Math.cos(t)*r0, sa=Math.sin(t)*r0;
+      ring.push([d[0]*base+a[0]*ca+b[0]*sa, d[1]*base+a[1]*ca+b[1]*sa, d[2]*base+a[2]*ca+b[2]*sa]);
+    }
+    const out=[];
+    for(let i=0;i<nseg;i++){
+      const p0=ring[i], p1=ring[(i+1)%nseg];
+      const c=[(p0[0]+p1[0]+apex[0])/3,(p0[1]+p1[1]+apex[1])/3,(p0[2]+p1[2]+apex[2])/3];
+      out.push({p:[p0,p1,apex],n:nrm(c),col:col,em:em});
+    }
+    return out;
+  }
+  function icoFaces(R,col,em){
+    const t=(1+Math.sqrt(5))/2;
+    const V=[[-1,t,0],[1,t,0],[-1,-t,0],[1,-t,0],[0,-1,t],[0,1,t],[0,-1,-t],[0,1,-t],[t,0,-1],[t,0,1],[-t,0,-1],[-t,0,1]]
+      .map(v=>{const n2=nrm(v);return [n2[0]*R,n2[1]*R,n2[2]*R];});
+    const F2=[[0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],[1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],[3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],[4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1]];
+    const out=[];
+    for(const f2 of F2){
+      const p=[V[f2[0]],V[f2[1]],V[f2[2]]];
+      const c=[(p[0][0]+p[1][0]+p[2][0])/3,(p[0][1]+p[1][1]+p[2][1])/3,(p[0][2]+p[1][2]+p[2][2])/3];
+      out.push({p:p,n:nrm(c),col:col,em:em});
+    }
+    return out;
+  }
+  function boxAt(cx,cy,cz,w,h,d,col,em){
+    const l=[]; addBox(l,cx,cy,cz,w,h,d,col,null);
+    for(const f2 of l)f2.em=em;
+    return l;
+  }
+  /* VIRUS: spiky icosahedron */
+  const meshVirus=(function(){
+    const R=1.0, out=icoFaces(R,[255,58,92],0);
+    const dirs=[[0,1,0],[0.94,0.34,0],[-0.94,0.34,0],[0,0.34,0.94],[0,0.34,-0.94],[0,-0.94,0]];
+    for(const d of dirs) out.push.apply(out, coneFaces(d,R*1.95,R*0.60,R*0.46,[214,44,78],0,3));
+    return out;
+  })();
+  /* HACKER: angular drone */
+  const meshHacker=(function(){
+    const out=[], R=0.92;
+    const V=[[R,0,0],[-R,0,0],[0,R*1.25,0],[0,-R*1.25,0],[0,0,R],[0,0,-R]];
+    const F2=[[0,2,4],[2,1,4],[1,3,4],[3,0,4],[2,0,5],[1,2,5],[3,1,5],[0,3,5]];
+    for(const f2 of F2){
+      const p=[V[f2[0]],V[f2[1]],V[f2[2]]];
+      const c=[(p[0][0]+p[1][0]+p[2][0])/3,(p[0][1]+p[1][1]+p[2][1])/3,(p[0][2]+p[1][2]+p[2][2])/3];
+      out.push({p:p,n:nrm(c),col:[255,186,42],em:0});
+    }
+    out.push.apply(out, boxAt(R*1.45,0,0, R*0.85,R*0.5,R*1.0,[228,150,24],0));
+    out.push.apply(out, boxAt(-R*1.45,0,0, R*0.85,R*0.5,R*1.0,[228,150,24],0));
+    out.push({p:[[-R*0.34,R*0.24,R*0.97],[R*0.34,R*0.24,R*0.97],[R*0.34,-R*0.10,R*0.97],[-R*0.34,-R*0.10,R*0.97]],
+      n:[0,0,1],col:[255,244,170],em:1});
+    return out;
   })();
 
   /* ---------- state ---------- */
-  let yaw=0.55, bright=1, flags={glitch:false,healing:false};
+  let yaw=0.30, bright=1, flags={glitch:false,healing:false};
+  let enemies=[];
   const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+
+  /* project a point given in the (rotating) rig frame to canvas coords */
+  function project(p){
+    const c2=Math.cos(yaw), s2=Math.sin(yaw);
+    const wx=p[0]*c2+p[2]*s2, wz=-p[0]*s2+p[2]*c2;
+    const rx=wx-camPos[0], ry=p[1]-camPos[1], rz=wz-camPos[2];
+    const zv=F[0]*rx+F[1]*ry+F[2]*rz;
+    if(zv<0.12) return {x:-9999,y:-9999,zv:zv,k:0,vis:false};
+    const xv=R[0]*rx+R[1]*ry+R[2]*rz;
+    const yv=U[0]*rx+U[1]*ry+U[2]*rz;
+    const k=FOC/zv;
+    return {x:W/2+xv*k, y:H/2-yv*k, zv:zv, k:k, vis:true};
+  }
 
   function texTriPlus(g,tex,pts,uv,shade,fog){
     const n=pts.length;
@@ -793,6 +885,33 @@ const Core3D=(function(){
         n:[f.n[0]*c+f.n[2]*s,f.n[1],-f.n[0]*s+f.n[2]*c],
         col:f.col,tex:f.tex,uv:f.uv,em:f.em,nc:f.nc});
     }
+
+    /* ---- enemies: low-poly meshes living in the 3D world ---- */
+    const liveE=[];
+    for(const e of enemies){
+      if(e.dying && e.dieT<=0) continue;
+      const dying=!!e.dying;
+      const dp=dying?1-(e.dieT/0.42):0;
+      const prog=Math.min(1,Math.max(0,(SPAWN_R-e.r)/(SPAWN_R-CONTACT_R)));
+      const sc=0.165*(e.scale||1)*(0.80+0.20*prog)*(dying?1+0.95*dp:1);
+      const spin=e.spin;
+      const cc=Math.cos(c+spin), ss=Math.sin(c+spin);
+      const fade=dying?Math.min(1,dp*1.05):0;
+      const mesh=e.kind==="hacker"?meshHacker:meshVirus;
+      const boost=e.contact?1.35:1;
+      for(const f of mesh){
+        const p=[], n=[];
+        for(const v of f.p){
+          const x=v[0]*cc+v[2]*ss, z=-v[0]*ss+v[2]*cc;
+          p.push([x*sc+e.wx, v[1]*sc+e.wy, z*sc+e.wz]);
+        }
+        const nx=f.n[0]*cc+f.n[2]*ss, nz=-f.n[0]*ss+f.n[2]*cc;
+        all.push({p:p, n:[nx,f.n[1],nz],
+          col:[Math.min(255,f.col[0]*boost),Math.min(255,f.col[1]*boost),Math.min(255,f.col[2]*boost)],
+          tex:null, uv:null, em:f.em, _fogAdd:fade});
+      }
+      liveE.push(e);
+    }
     /* background */
     bg.setTransform(1,0,0,1,0,0);
     const grd=bg.createLinearGradient(0,0,0,H);
@@ -831,7 +950,7 @@ const Core3D=(function(){
       const f=it.f;
       const lam=Math.max(0,dot(f.n,LIGHT));
       const sh=0.42+0.58*lam;
-      const fog=Math.min(1,Math.max(0,(it.zv-2.6)/4.0))*0.9;
+      const fog=Math.min(1,Math.max(0,(it.zv-2.6)/4.0)*0.9+(f._fogAdd||0));
       if(f.tex){
         texTriPlus(bg,f.tex,it.pts,f.uv,f.em>0.5?null:Math.min(1,sh*bright),fog);
       }else{
@@ -851,6 +970,20 @@ const Core3D=(function(){
         if(f.em>0.5){bg.strokeStyle="rgba(200,255,255,.2)";bg.lineWidth=1;bg.stroke();}
       }
     }
+
+    /* ---- projected HP bars for enemies ---- */
+    for(const e of liveE){
+      if(e.dying || e.hpPct>=0.999) continue;
+      const pr=project([e.wx, e.wy+(e.kind==="hacker"?0.30:0.42), e.wz]);
+      if(!pr.vis) continue;
+      const w2=Math.max(10,Math.min(26,18*pr.k*0.17)), h2=3;
+      const x0=Math.round(pr.x-w2/2), y0=Math.round(pr.y-h2/2);
+      bg.fillStyle="rgba(0,0,0,.7)"; bg.fillRect(x0-1,y0-1,w2+2,h2+2);
+      bg.fillStyle="rgba(255,255,255,.16)"; bg.fillRect(x0,y0,w2,h2);
+      bg.fillStyle=e.kind==="hacker"?"#ffcf4d":"#ff4d6a";
+      bg.fillRect(x0,y0,Math.max(1,Math.round(w2*e.hpPct)),h2);
+    }
+
     dither();
     ctx.setTransform(1,0,0,1,0,0);
     ctx.clearRect(0,0,W,H);ctx.imageSmoothingEnabled=false;
@@ -865,8 +998,8 @@ const Core3D=(function(){
 
   let T=performance.now()/1000;
   function doFrame(dt){
-    yaw+=dt*0.42;
     T+=dt;
+    yaw=0.30+Math.sin(T*0.33)*0.16;
     renderScene(T);
   }
   renderScene(T);
@@ -875,7 +1008,9 @@ const Core3D=(function(){
     frame(dt){doFrame(dt);},
     setScreen(t){if(t!==screenText){screenText=t;paintScreen();}},
     setBright(v){bright=v;},
-    setFlags(g,h){flags.glitch=g;flags.healing=h;}
+    setFlags(g,h){flags.glitch=g;flags.healing=h;},
+    setThreats(list){enemies=list||[];},
+    project(p){return project(p);}
   };
 })();
 
@@ -1078,7 +1213,7 @@ function think(){
 
 /* ===================== INIT ===================== */
 load();
-if(S.threats.length>8)S.threats=[];
+if(!Array.isArray(S.threats)||S.threats.some(th=>!th||th.lx===undefined))S.threats=[];
 renderAll();
 log("SENTINEL-9 NET CLEANSE SUBSYSTEM ONLINE","cy");
 log("Select a node to accelerate its COMPUTE/MEMORY collection. Defend the core.","warn");
