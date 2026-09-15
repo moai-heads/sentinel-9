@@ -9,6 +9,14 @@ The net is infected. You hold the central core — a computer with a shield. Thr
 spawn in the surrounding sectors and rush the core. Keep INTEGRITY above zero,
 cleanse sectors, and build a self-running defense.
 
+## Two views
+- **GRID (orbit)** — the god view: the core sits in a PS1-style low-poly diorama
+  while threats fly in from the surrounding sectors.
+- **FIRST-PERSON (FPS)** — drop into the room: run around the core and shoot the
+  viruses yourself with WASD + mouse (pointer lock). Your unlocked auto-fire
+  weapons keep firing alongside you, so the tower-defense layer stays live while
+  you play. Press `F` (or `?fps=1`) to enter; `ESC` / `F` returns to the grid.
+
 ## Mechanics
 - **Cleanse nodes** — 10 collector tiers (CPU, RAM, GPU, SSD, BUS, COOLANT, QPU,
   NEURAL...). Each has its own fill bar and produces COMPUTE or MEMORY. Upgrade a
@@ -16,7 +24,11 @@ cleanse sectors, and build a self-running defense.
 - **MATERIALS** — **COMPUTE** and **MEMORY** are the two currencies, spent on node
   upgrades (of their own type) and defense modules.
 - **Defense modules** — CLOCK RATE (+node speed), CACHE/ADDRESS BUS (+yields),
-  FIREWALL (-incoming damage), ANTIVIRUS ENGINE (+threat dps).
+  FIREWALL (-incoming damage), OVERCLOCK CORE / COOLANT LOOP (+weapon output).
+- **Auto-fire weapons** — you start with a single slow turret and unlock four
+  more (cost COMPUTE/MEMORY, scale with node progression). Each has its own dps,
+  rate of fire and tracer colour; together with your own gun they form the
+  defense. `WEAPON DPS` is shown in the HUD.
 - **Threats** — viruses (red) and hackers (amber). They spawn at the sector edge,
   *approach* the core, *contact* it, and chip INTEGRITY while in contact. The
   antivirus engine burns them down on the way in — **NEUTRALIZED** threats pay out
@@ -39,6 +51,7 @@ cleanse sectors, and build a self-running defense.
   purges when rich). Good for idle/background growth and demos.
 - `&speed=N` — multiplies game time (e.g. `speed=2`).
 - `&seed=N` — deterministic RNG so headless runs are reproducible.
+- `&fps=1` — boot straight into the first-person view (used by the demo capture).
 - `&sim=SECONDS` — headlessly fast-forward a fresh state before rendering.
 
 ## Phase 1 — threat lifecycle & impact FX (DONE)
