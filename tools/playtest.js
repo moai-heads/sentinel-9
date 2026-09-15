@@ -1,13 +1,15 @@
-// Real-time CDP playtest: boots the game headless, autoplays, logs state, saves screenshots.
+console.log("[harness boot]");
+// Real-time CDP playtest for SENTINEL-9 // NET CLEANSE
 const { spawn } = require("child_process");
 const fs = require("fs");
 const http = require("http");
 const path = require("path");
 
 const ROOT = path.resolve(__dirname, "..");
-const FILE = "file://" + path.join(ROOT, "index.html") + "?autoplay=1";
 const OUTDIR = process.argv[2] || path.join(ROOT, "captures");
-const SECONDS = parseInt(process.argv[3] || "50", 10);
+const SECONDS = parseInt(process.argv[3] || "60", 10);
+const SPEED = process.argv[4] || "4";
+const FILE = "file://" + path.join(ROOT, "index.html") + "?autoplay=1&speed=" + SPEED;
 fs.mkdirSync(OUTDIR, { recursive: true });
 
 const PORT = 9331;
@@ -19,8 +21,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     "--headless=new", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage",
     "--remote-debugging-port=" + PORT, "--window-size=1280,800",
     "--hide-scrollbars", "--force-device-scale-factor=1",
-    "--user-data-dir=/tmp/nexus_pt_" + process.pid,
-    "about:blank"
+    "--user-data-dir=/tmp/sentinel_pt_" + process.pid, "about:blank"
   ], { stdio: "ignore" });
 
   let target = null;
@@ -43,25 +44,28 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   const shot = async name => { const s = await send("Page.captureScreenshot", { format: "png" }); if (s && s.data) fs.writeFileSync(path.join(OUTDIR, name), Buffer.from(s.data, "base64")); };
   const evalState = async () => {
-    const r = await send("Runtime.evaluate", { expression: `(()=>{const g=window.__game; if(!g)return null; const s=g.state; return JSON.stringify({cy:s.cycles,k:s.kernels,trace:+s.trace.toFixed(1),idx:s.targetIdx,deep:s.deepest,killed:s.killed,hp:+s.hp.toFixed(0),dps:+g.dps().toFixed(1),t:+s.t.toFixed(1),lv:s.lv})})()`, returnByValue: true });
+    const r = await send("Runtime.evaluate", { expression: `(()=>{const g=window.__game; if(!g)return null; const s=g.state;
+      const unlocked=g.NODES.filter(n=>n.unlocked).length;
+      return JSON.stringify({t:+s.t.toFixed(1),compute:Math.floor(s.compute),memory:Math.floor(s.memory),cleaned:+s.cleaned.toFixed(1),
+        sector:s.sector,integrity:+s.integrity.toFixed(0),threats:s.threats.length,kills:s.kills,checksums:s.checksums,crashes:s.crashes,
+        unlocked,levels:g.NODES.map(n=>n.level),mmods:s.mlv,sel:s.sel,rate:+g.NODES.reduce((a,n)=>a+(n.unlocked?g.nodeRate(n):0),0).toFixed(1)})})()`, returnByValue: true });
     return r && r.result && r.result.value ? JSON.parse(r.result.value) : null;
   };
 
-  const timeline = [];
-  const frames = [];
+  const timeline = []; const frames = [];
   for (let t = 0; t < SECONDS; t += 2) {
     const st = await evalState();
-    if (st) { timeline.push(st); if (t % 6 === 0) { const nm = "pt_" + String(t).padStart(2, "0") + "s.png"; await shot(nm); frames.push(nm); } }
+    if (st) { timeline.push(st); if (t % 8 === 0) { const nm = "pt_" + String(t).padStart(2, "0") + "s.png"; await shot(nm); frames.push(nm); } }
     await sleep(2000);
   }
   const fin = await evalState();
   await shot("pt_final.png");
 
   fs.writeFileSync(path.join(OUTDIR, "playtest.json"), JSON.stringify({ timeline, final: fin, problems }, null, 1));
-  console.log("=== TIMELINE ===");
-  for (const r of timeline) console.log(`t=${String(r.t).padStart(5)}s  cy=${String(Math.floor(r.cy)).padStart(9)}  dps=${String(r.dps).padStart(8)}  trace=${String(r.trace).padStart(5)}  target=${r.idx}(${r.deep})  kills=${r.killed}  lv=${JSON.stringify(r.lv)}`);
+  console.log("=== TIMELINE (speed=" + SPEED + ") ===");
+  for (const r of timeline) console.log(`t=${String(r.t).padStart(6)}s  C=${String(r.compute).padStart(8)}  M=${String(r.memory).padStart(8)}  cln=${String(r.cleaned).padStart(5)}%  sec=${r.sector}  int=${String(r.integrity).padStart(3)}  thr=${r.threats}  kills=${String(r.kills).padStart(4)}  nodes=${r.unlocked}/10  rate=${r.rate}/s  sel=${r.sel}  chk=${r.checksums}  crash=${r.crashes}`);
   console.log("=== FINAL ===", JSON.stringify(fin));
-  console.log("=== PROBLEMS ===", problems.length ? problems.join("\n") : "(none)");
+  console.log("=== PROBLEMS ===", problems.length ? problems.slice(0,10).join("\n") : "(none)");
   console.log("=== FRAMES ===", frames.join(" "));
   ws.close(); chrome.kill();
 })().catch(e => { console.error("HARNESS ERROR", e); process.exit(1); });
