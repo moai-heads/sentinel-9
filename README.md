@@ -1,26 +1,66 @@
-# NEXUS-7 // CONTAINMENT
+# SENTINEL-9 // NET CLEANSE
 
-A single-file browser incremental game (open `index.html`).
+A single-file browser incremental/idle defender game (open `index.html`). You run
+the last clean core on the internet; viruses and hackers converge on it while your
+antivirus engine and defense modules fight back.
 
 ## Premise
-You are an operator inside NEXUS-7. Assault network segments, salvage CYCLEs,
-buy containment upgrades, and push DEEPER before the mainframe traces you.
+The net is infected. You hold the central core — a computer with a shield. Threats
+spawn in the surrounding sectors and rush the core. Keep INTEGRITY above zero,
+cleanse sectors, and build a self-running defense.
 
 ## Mechanics
-- **Target roster** — 10 named tiers; deeper tiers are exponentially tankier and richer.
-- **CYCLEs** — currency from neutralizing targets; funds upgrades.
-- **TRACE** — exposure grows while you attack a target (deepest tiers expose you fastest).
-  Hit 100% and the mainframe **purges** you: cycles + position are lost, but
-  **KERNELs** (+15% damage & salvage each), depth, and upgrades persist.
-- **SCRUB** — spend cycles to vent trace.
-- **Autoplay** — `index.html?autoplay=1` (demo/idle). `&speed=N` multiplies game time.
+- **Cleanse nodes** — 10 collector tiers (CPU, RAM, GPU, SSD, BUS, COOLANT, QPU,
+  NEURAL...). Each has its own fill bar and produces COMPUTE or MEMORY. Upgrade a
+  node to speed its collection; upgrading node *i* unlocks node *i+1*.
+- **MATERIALS** — **COMPUTE** and **MEMORY** are the two currencies, spent on node
+  upgrades (of their own type) and defense modules.
+- **Defense modules** — CLOCK RATE (+node speed), CACHE/ADDRESS BUS (+yields),
+  FIREWALL (-incoming damage), ANTIVIRUS ENGINE (+threat dps).
+- **Threats** — viruses (red) and hackers (amber). They spawn at the sector edge,
+  *approach* the core, *contact* it, and chip INTEGRITY while in contact. The
+  antivirus engine burns them down on the way in — **NEUTRALIZED** threats pay out
+  COMPUTE/MEMORY and advance **NET CLEANED**.
+- **Integrity / shield** — 100-pt core health. The shield reacts visually in tiers:
+  **harmed** (yellow) below 66, **strained** (orange) below 33, and a red **breach**
+  flash on a hit that would have been fatal-but-healed. Integrity slowly regens
+  while the core is safe.
+- **Sector cleanse** — cleaning threats fills the NET CLEANED meter; at 100% you
+  advance a sector (EDGE EXCHANGE → ROOT NAMESPACE). **PURGE SECTOR** instantly
+  cleanses a chunk for a big COMPUTE+MEMORY cost.
+- **SYSTEM CRASH** — if integrity hits 0 the core is overwhelmed: session COMPUTE /
+  MEMORY are lost, but you earn a **CHECKSUM** (+10% to all yields, permanent).
+- **Keeping upgrades** — node levels, module levels, sector, and checksums all
+  **persist** across PURGE, SYSTEM CRASH, and page reloads (localStorage). Progress
+  is never fully wiped.
 
-## Balance (tuned)
-- HP `12 * 8^i`, reward `8 * 8.5^i`, trace/s `0.5 + 0.5i`
-- Signal Amp +30%/lv (cost `10 * 1.42^n`); Clock Rate +0.5/s; Salvage +30%; Containment -9% (max 6)
-- Verified curve (real page, speed=4): depth 3 ~64s, depth 5 ~100s, depth 9 ~190s game-time.
+## Autoplay / idle
+- `index.html?autoplay=1` — the game plays itself (buys modules, upgrades nodes,
+  purges when rich). Good for idle/background growth and demos.
+- `&speed=N` — multiplies game time (e.g. `speed=2`).
+- `&seed=N` — deterministic RNG so headless runs are reproducible.
+- `&sim=SECONDS` — headlessly fast-forward a fresh state before rendering.
 
-## Tools
-- `tools/playtest.js` — headless CDP harness (see repo; rebuilt on demand).
+## Phase 1 — threat lifecycle & impact FX (DONE)
+The "feel" layer that makes the idle defense read as a living attack:
+- Threats have a real state machine: `approach → attack (contact) → dying`, with
+  per-threat HP bars and hacker/virus variants.
+- **Contact** pins a threat to the core and deals INTEGRITY damage; impacts spawn
+  **particle bursts** (sparks on hit, shockwave on contact) plus a screen shake.
+- **Shield states** driven by integrity tiers (harmed / strained / crit) with a
+  red **breach** overlay flash, and antenna/PC glitch in the high tiers.
+- Verified headlessly by `tools/playtest_p1.js` (see below).
+
+## Tools (headless CDP)
+Node scripts that drive the real page in headless Chromium over the DevTools
+protocol — no dependencies beyond `node`, `chromium`, and `ffmpeg`.
+- `tools/playtest.js` — general headless harness / smoke test.
+- `tools/playtest_p1.js` — **Phase 1 verification**: samples the sim over time and
+  asserts the full lifecycle (approach/contact/dying), particle counts, shield
+  tiers, then forces low integrity to exercise strained/crit shield states and the
+  breach overlay. Writes `report.json` + PNG captures.
+- `tools/record_demo.js` — records a real-time-accurate MP4 of an autoplay run via
+  CDP screenshots (timestamped frames encoded at the measured fps).
+  Usage: `node tools/record_demo.js <seconds> <speed> <out.mp4> [seed]`.
 
 Open the file directly in a browser; no build step.
