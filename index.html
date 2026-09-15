@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NEXUS-7 // MAINFRAME</title>
+<title>NEXUS-7 // CONTAINMENT</title>
 <style>
 :root{
   --bg:#070707; --panel:#0d0d0f; --panel2:#111116; --line:#20202a;
@@ -22,488 +22,349 @@ body{
 #vig{background:radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(0,0,0,.75) 100%)}
 #app{height:100%;display:flex;flex-direction:column;padding:10px 12px;gap:9px}
 
-header{display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--line);padding-bottom:7px}
+header{display:flex;align-items:baseline;gap:18px;border-bottom:1px solid var(--line);padding-bottom:7px;flex-wrap:wrap}
 .brand{color:var(--amber);font-weight:700;letter-spacing:.14em;text-shadow:0 0 10px rgba(255,176,0,.5)}
 .brand b{color:var(--grn)}
-.cur{margin-left:auto;text-align:right;line-height:1.1}
-.cur .n{font-size:26px;color:var(--grn);text-shadow:0 0 12px rgba(57,255,136,.45);font-weight:700}
-.cur .r{font-size:11px;color:var(--amber-dim)}
-.cur .lbl{font-size:10px;color:#6a5b34;letter-spacing:.2em}
+.stat{line-height:1.1}
+.stat .n{font-size:20px;color:var(--grn);text-shadow:0 0 10px rgba(57,255,136,.4);font-weight:700}
+.stat .n.amb{color:var(--amber);text-shadow:0 0 10px rgba(255,176,0,.4)}
+.stat .n.cy{color:var(--cyan);text-shadow:0 0 10px rgba(90,215,255,.4)}
+.stat .l{font-size:9px;color:#6a5b34;letter-spacing:.18em}
+.stat.sp{margin-left:auto}
 
-main{flex:1;display:grid;grid-template-columns:1.08fr .92fr;gap:9px;min-height:0}
+main{flex:1;display:grid;grid-template-columns:1.05fr .95fr;gap:9px;min-height:0}
 .col{display:flex;flex-direction:column;gap:9px;min-height:0}
-.panel{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:3px;padding:9px 10px;position:relative}
+.panel{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:3px;padding:9px 10px;position:relative;display:flex;flex-direction:column;min-height:0}
 .panel h2{font-size:10px;letter-spacing:.22em;color:var(--amber-dim);font-weight:600;margin-bottom:7px;text-transform:uppercase}
 .panel h2:before{content:"// ";color:#4a3d1c}
+.grow{flex:1;min-height:0;overflow-y:auto;padding-right:3px}
 
-/* actions */
-.actions{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:8px}
-button{
-  font:inherit;cursor:pointer;background:#141419;color:var(--amber);
-  border:1px solid #33333f;border-radius:3px;padding:9px 8px;text-transform:uppercase;
-  letter-spacing:.09em;font-size:12px;transition:.08s;position:relative;
-}
-button:hover:not(:disabled){background:#1d1d25;border-color:var(--amber);box-shadow:0 0 12px rgba(255,176,0,.22) inset}
-button:active:not(:disabled){transform:translateY(1px)}
-button:disabled{opacity:.35;cursor:not-allowed}
-button.big{font-size:15px;font-weight:700;color:#0a0a0a;background:var(--amber);border-color:var(--amber);padding:12px 8px}
-button.big:hover{background:#ffc633;box-shadow:0 0 20px rgba(255,176,0,.55)}
-button.danger{color:var(--red);border-color:#40222a}
-button.danger:hover{border-color:var(--red);box-shadow:0 0 12px rgba(255,71,71,.25) inset}
-button.go{color:var(--grn);border-color:#1f4030}
-button.go:hover{border-color:var(--grn)}
-.actions button .sub{display:block;font-size:10px;opacity:.8;margin-top:2px;text-transform:none;letter-spacing:.03em}
+.cur-target .tname{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.cur-target .tname b{font-size:17px;color:var(--grn);letter-spacing:.08em}
+.cur-target .tname span{font-size:11px;color:var(--amber-dim)}
+.hpbar{height:16px;border:1px solid #2c2c38;border-radius:2px;background:#080809;margin:8px 0 5px;overflow:hidden;position:relative}
+.hpfill{height:100%;background:linear-gradient(90deg,#7a1414,#ff4747);transition:width .06s linear;box-shadow:0 0 12px rgba(255,71,71,.5) inset}
+.hpfill.good{background:linear-gradient(90deg,#0d5a32,#39ff88)}
+.hptxt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;letter-spacing:.1em;color:#fff;text-shadow:0 1px 2px #000}
+.cur-target .meta{display:flex;gap:14px;font-size:11px;color:#8f8158;flex-wrap:wrap}
+.cur-target .meta b{color:var(--cyan)}
 
-/* shop */
-.shop{display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1;min-height:0;padding-right:2px}
-.row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:3px;background:#0b0b0e;cursor:pointer;transition:.08s}
-.row:hover{border-color:#3a3a48;background:#101016}
-.row.can{border-color:var(--grn);background:#0c1410}
-.row.can:hover{box-shadow:0 0 14px rgba(57,255,136,.13)}
-.row.locked{opacity:.4}
-.row .nm{color:var(--amber);font-size:12px;letter-spacing:.06em}
-.row .sub{font-size:10.5px;color:#6a5b34;margin-top:2px}
-.row .right{text-align:right;min-width:104px}
-.row .own{font-size:17px;color:var(--grn);font-weight:700}
-.row .cost{font-size:11px;color:var(--txt)}
-.row.can .cost{color:var(--grn)}
-.row .cost.no{color:var(--red)}
+.trow{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:9px;padding:6px 8px;border:1px solid var(--line);border-radius:3px;background:#0b0b0e;cursor:pointer;margin-bottom:5px;transition:.08s}
+.trow:hover{border-color:#3a3a48;background:#101016}
+.trow.active{border-color:var(--grn);box-shadow:0 0 10px rgba(57,255,136,.18) inset}
+.trow.locked{opacity:.32;cursor:not-allowed}
+.trow.done .nm{color:#4f7f65}
+.trow .id{font-size:9px;color:#4a3d1c;letter-spacing:.12em}
+.trow .nm{font-size:12.5px;color:var(--txt)}
+.trow .nm small{display:block;font-size:9.5px;color:#6a5b34}
+.trow .rw{font-size:10px;color:var(--amber);text-align:right}
+.trow .rw small{display:block;color:#6a5b34;font-size:8.5px}
+.tmini{height:4px;background:#080809;border:1px solid #22222c;border-radius:2px;margin-top:4px;overflow:hidden}
+.tmini i{display:block;height:100%;background:var(--red)}
 
-/* threat */
-.threat .bar{height:16px;background:#120a0a;border:1px solid #33202a;border-radius:2px;overflow:hidden;position:relative}
-.threat .fill{height:100%;width:0%;background:linear-gradient(90deg,#6a1a1a,var(--red));transition:width .18s;box-shadow:0 0 14px rgba(255,71,71,.5)}
-.threat .pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;text-shadow:0 0 4px #000;letter-spacing:.2em}
-.threat.warn .fill{background:linear-gradient(90deg,#6a5a1a,#ffb000)}
-.threat .rate{font-size:10.5px;color:#7a5a5a;margin-top:5px;display:flex;justify-content:space-between}
+.urow{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:3px;background:#0b0b0e;cursor:pointer;margin-bottom:6px;transition:.08s;text-align:left}
+.urow:hover:not(.no){border-color:#3a3a48;background:#101016}
+.urow.no{opacity:.4;cursor:not-allowed}
+.urow .ut{font-size:12px;color:var(--amber);letter-spacing:.04em}
+.urow .ud{font-size:10px;color:#7d6f4a;margin-top:2px}
+.urow .ud b{color:var(--grn)}
+.urow .cost{font-size:12px;color:var(--cyan);text-align:right;white-space:nowrap}
+.urow .cost small{display:block;font-size:8.5px;color:#6a5b34}
 
-/* network */
-.net{display:grid;grid-template-columns:repeat(12,1fr);gap:3px}
-.cell{aspect-ratio:1;background:#0f0f13;border:1px solid #1b1b22;border-radius:1px;transition:.4s}
-.cell.on{background:var(--grn);border-color:var(--grn);box-shadow:0 0 7px rgba(57,255,136,.6)}
-.cell.warm{background:#2a4a1a;border-color:#3a5a1a}
+.trace .lbl{display:flex;justify-content:space-between;font-size:10px;color:#6a5b34;margin-bottom:5px}
+.trace .lbl b{color:var(--amber)}
+.tbar{height:13px;border:1px solid #2c2c38;border-radius:2px;background:#080809;overflow:hidden;position:relative}
+.tfill{height:100%;width:0;background:linear-gradient(90deg,#7a6200,#ffb000);transition:width .1s linear}
+.tfill.hot{background:linear-gradient(90deg,#8a2000,#ff4747)}
+.hint{font-size:9.5px;color:#5f5334;margin-top:6px;line-height:1.5}
+.hint b{color:var(--grn)}
+button.scrub{width:100%;margin-top:9px;font:inherit;cursor:pointer;background:#141419;color:var(--cyan);
+  border:1px solid #2b4a5a;border-radius:3px;padding:8px;letter-spacing:.09em;text-transform:uppercase;font-size:11px;transition:.08s}
+button.scrub:hover:not(:disabled){background:#11202a;border-color:var(--cyan);box-shadow:0 0 14px rgba(90,215,255,.22) inset}
+button.scrub:disabled{opacity:.35;cursor:not-allowed}
 
-/* log */
-.log{font-size:11px;line-height:1.6;overflow-y:auto;flex:1;min-height:0;color:#8a7a55}
-.log div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.log .ok{color:var(--grn)} .log .bad{color:var(--red)} .log .hi{color:var(--amber)} .log .cy{color:var(--cyan)}
-.log .t{color:#4a3d1c}
+#log{font-size:10.5px;line-height:1.6}
+#log div{color:#7d6f4a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#log div .t{color:#3f3618}
+#log div.ok{color:var(--grn)}
+#log div.warn{color:var(--amber)}
+#log div.bad{color:var(--red)}
+#log div.cy{color:var(--cyan)}
 
-canvas{width:100%;display:block;height:52px}
-.foot{display:flex;gap:14px;font-size:10px;color:#5a4d2a;border-top:1px solid var(--line);padding-top:6px}
-.foot b{color:var(--amber)}
-.foot .sp{margin-left:auto}
-.upgrow{display:flex;gap:6px;flex-wrap:wrap}
-.upg{flex:1 1 46%;display:flex;justify-content:space-between;gap:6px;align-items:center;padding:6px 8px;border:1px solid var(--line);border-radius:3px;background:#0b0b0e;cursor:pointer;font-size:11px}
-.upg:hover{border-color:#3a3a48}
-.upg.can{border-color:var(--cyan)}
-.upg .c{color:var(--cyan)} .upg.can .c{color:var(--grn)}
-.upg .n{color:var(--amber)}
-.overlay{position:fixed;inset:0;background:rgba(3,3,3,.86);display:flex;align-items:center;justify-content:center;z-index:120;backdrop-filter:blur(2px)}
-.overlay .box{border:1px solid var(--amber-dim);background:#0a0a0c;padding:26px 34px;text-align:center;max-width:560px;box-shadow:0 0 60px rgba(0,0,0,.9)}
-.overlay h1{color:var(--amber);font-size:22px;letter-spacing:.2em;margin-bottom:12px;text-shadow:0 0 14px rgba(255,176,0,.5)}
-.overlay p{color:var(--txt);font-size:12.5px;line-height:1.9;margin-bottom:8px}
-.overlay .k{color:var(--grn)}
-.hide{display:none}
+#overlay{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;background:rgba(4,0,0,.82)}
+#overlay.on{display:flex;animation:flash .34s}
+@keyframes flash{0%{background:rgba(255,71,71,.55)}100%{background:rgba(4,0,0,.82)}}
+.ovbox{text-align:center;border:1px solid var(--red);padding:26px 40px;border-radius:4px;background:rgba(20,0,0,.7);box-shadow:0 0 40px rgba(255,71,71,.35)}
+.ovbox h1{font-size:28px;color:var(--red);letter-spacing:.22em;text-shadow:0 0 18px rgba(255,71,71,.7)}
+.ovbox p{color:#c9b98c;margin-top:12px;font-size:12px}
+.ovbox .k{color:var(--grn);font-size:14px;margin-top:8px}
+.ovbox button{margin-top:18px;font:inherit;cursor:pointer;background:#1a0d0d;color:var(--red);border:1px solid #6a2020;border-radius:3px;padding:10px 22px;letter-spacing:.12em;text-transform:uppercase}
+.ovbox button:hover{background:#2a1010;border-color:var(--red);box-shadow:0 0 16px rgba(255,71,71,.3)}
+::-webkit-scrollbar{width:7px}::-webkit-scrollbar-thumb{background:#26262f;border-radius:4px}
 </style>
 </head>
 <body>
 <div id="crt"></div><div id="vig"></div>
-
 <div id="app">
   <header>
-    <div class="brand">NEXUS-7 <b>//</b> MAINFRAME <span id="cursor">_</span></div>
-    <div class="cur">
-      <div class="lbl">COMPUTE CYCLES</div>
-      <div class="n" id="cycles">0</div>
-      <div class="r" id="rate">0/s</div>
-    </div>
+    <div class="brand">NEXUS&#8209;7 <b>// CONTAINMENT</b></div>
+    <div class="stat"><div class="n" id="hCycles">0</div><div class="l">CYCLES</div></div>
+    <div class="stat"><div class="n amb" id="hDps">0/s</div><div class="l">DPS</div></div>
+    <div class="stat"><div class="n cy" id="hKernels">0</div><div class="l">KERNELS</div></div>
+    <div class="stat sp"><div class="n amb" id="hHigh">&mdash;</div><div class="l">DEEPEST</div></div>
   </header>
 
   <main>
     <div class="col">
-      <div class="panel">
-        <h2>Operator Console</h2>
-        <div class="actions">
-          <button class="big" id="exec">Execute<span class="sub" id="execGain"></span></button>
-          <button class="go" id="scrub">Scrub Logs<span class="sub" id="scrubCost"></span></button>
-          <button class="danger" id="reboot">Reboot<span class="sub" id="rebootGain"></span></button>
+      <div class="panel cur-target">
+        <h2>CURRENT TARGET</h2>
+        <div class="tname"><b id="ctName">&mdash;</b><span id="ctTag"></span></div>
+        <div class="hpbar"><div class="hpfill" id="ctHpFill" style="width:0"></div><div class="hptxt" id="ctHpTxt">0 / 0</div></div>
+        <div class="meta">
+          <span>TRACE <b id="ctTrace">0</b>/s</span>
+          <span>BOUNTY <b id="ctReward">0</b></span>
+          <span>KILLS <b id="ctCleared">0</b></span>
         </div>
       </div>
-
-      <div class="panel" style="flex:1;display:flex;flex-direction:column;min-height:0">
-        <h2>Node Fabrication</h2>
-        <div class="shop" id="shop"></div>
-      </div>
-
-      <div class="panel">
-        <h2>Kernel Modules</h2>
-        <div class="upgrow" id="upgrades"></div>
+      <div class="panel grow">
+        <h2>TARGET ROSTER</h2>
+        <div id="roster" class="grow"></div>
       </div>
     </div>
 
     <div class="col">
-      <div class="panel threat" id="threatPanel">
-        <h2>Trace Level</h2>
-        <div class="bar"><div class="fill" id="traceFill"></div><div class="pct" id="tracePct">0%</div></div>
-        <div class="rate"><span id="traceRate">+0.0%/s</span><span id="shieldInfo"></span></div>
+      <div class="panel grow">
+        <h2>UPGRADES</h2>
+        <div id="shop" class="grow"></div>
       </div>
-
       <div class="panel">
-        <h2>Network Topology</h2>
-        <div class="net" id="net"></div>
+        <h2>TRACE &mdash; SYSTEM EXPOSURE</h2>
+        <div class="trace">
+          <div class="lbl"><span>CONTAINMENT INTEGRITY</span><b id="tracePct">0%</b></div>
+          <div class="tbar"><div class="tfill" id="traceFill"></div></div>
+        </div>
+        <button class="scrub" id="scrubBtn">SCRUB SEQUENCE</button>
+        <div class="hint">Trace builds while you assault a target; deepest tiers expose you fastest. At 100% the mainframe <b>BREACHES</b> you &mdash; cycles and position are lost, but your upgrades, depth and <b>KERNELS</b> (+15% damage &amp; salvage each) persist.</div>
       </div>
-
-      <div class="panel">
-        <h2>Signal Spectrum</h2>
-        <canvas id="scope"></canvas>
-      </div>
-
-      <div class="panel" style="flex:1;display:flex;flex-direction:column;min-height:0">
-        <h2>System Log</h2>
-        <div class="log" id="log"></div>
-      </div>
-
-      <div class="foot">
-        <span>KERNELS <b id="kernels">0</b></span>
-        <span>REBOOTS <b id="reboots">0</b></span>
-        <span>TRACED <b id="caught">0</b></span>
-        <span class="sp" id="savestate">—</span>
+      <div class="panel" style="max-height:150px">
+        <h2>SYSTEM LOG</h2>
+        <div id="log"></div>
       </div>
     </div>
   </main>
 </div>
 
-<div class="overlay hide" id="overlay">
-  <div class="box">
-    <h1 id="ovTitle">NEXUS-7</h1>
-    <div id="ovBody"></div>
-    <p style="margin-top:16px"><span class="k" id="ovHint">PRESS ENTER</span></p>
-  </div>
-</div>
+<div id="overlay"><div class="ovbox">
+  <h1>CONTAINMENT BREACH</h1>
+  <p>The mainframe purged your session.</p>
+  <div class="k" id="ovKernels">KERNELS +0</div>
+  <button id="ovBtn">RESUME</button>
+</div></div>
 
 <script>
-/* ---------- helpers ---------- */
-const $=s=>document.querySelector(s);
-const UNITS=['','K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc','UDc','DDc'];
-function fmt(n){
-  if(n<0) return '-'+fmt(-n);
-  if(n<1000) return (n<10 && n%1!==0)?n.toFixed(1):Math.floor(n).toString();
-  let u=0; while(n>=1000 && u<UNITS.length-1){n/=1000;u++;}
-  return n.toFixed(n<10?2:n<100?1:0)+UNITS[u];
-}
-const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-
-/* ---------- content tables ---------- */
-const GENS=[
-  {id:'core',   name:'CORE UNIT',       base:0.6,  cost:15,     growth:1.150},
-  {id:'cluster',name:'CLUSTER NODE',    base:5,    cost:180,    growth:1.165},
-  {id:'array',  name:'ARRAY SEGMENT',   base:38,   cost:2600,   growth:1.180},
-  {id:'nexus',  name:'NEXUS ROUTER',    base:260,  cost:42000,  growth:1.200},
-  {id:'sing',   name:'SINGULARITY CORE',base:2100, cost:750000, growth:1.225},
-];
-const UPGRADES=[
-  {id:'clock', name:'OVERCLOCK',   desc:'output x1.5',      cost:l=>800*Math.pow(8,l),      max:99, mult:(s,l)=>Math.pow(1.5,l)},
-  {id:'shield',name:'FIREWALL',    desc:'trace rate -10%',  cost:l=>400*Math.pow(5,l),      max:12, mult:(s,l)=>Math.pow(0.9,l)},
-  {id:'comp',  name:'COMPILER',    desc:'output x2',        cost:l=>6000*Math.pow(15,l),    max:8,  mult:(s,l)=>Math.pow(2,l)},
-  {id:'thread',name:'HYPER-THREAD',desc:'output x3',        cost:l=>120000*Math.pow(20,l),  max:6,  mult:(s,l)=>Math.pow(3,l)},
-  {id:'auto',  name:'AUTO-SCRUB',  desc:'scrub at 70% trace',cost:l=>25000,                 max:1,  mult:(s,l)=>1},
-];
-const flavor=[
-  ['INITIALISING KERNEL SUBSYSTEMS...','ok'],
-  ['NODE HANDSHAKE ACCEPTED','cy'],
-  ['HEURISTIC ROUTING ONLINE','cy'],
-  ['PACKET FRAGMENTATION MITIGATED',''],
-  ['ENTROPY POOL REFILLED',''],
-  ['MEMORY PAGE 0x7F2A WRITTEN',''],
-];
-
-/* ---------- state ---------- */
-const SAVE='nexus7_save_v1';
-let S={
-  cycles:0, total:0, kernels:0, trace:0, caught:0, reboots:0,
-  owned:GENS.map(()=>0),
-  upg:Object.fromEntries(UPGRADES.map(u=>[u.id,0])),
-  scrubs:0, last:Date.now(), playtime:0, milestones:{}, spawn:0
-};
+"use strict";
 const params=new URLSearchParams(location.search);
-const SPEED=Math.max(0.1,parseFloat(params.get('speed'))||1);
+/* ===================== TARGET ROSTER (tuned: hp=12*8^i, reward=8*8^i) ===================== */
+const ROSTER=[
+  ["GHOST-01","ROUTER /A",     "edge node, negligible resistance"],
+  ["DAEMON-02","MAIL RELAY",   "background spooler daemon"],
+  ["PROXY-03","PROXY CLUSTER", "load-balanced, three hops"],
+  ["SWITCH-04","CORE SWITCH",  "hardened fabric"],
+  ["MAINFRM-05","MAINFRAME",   "legacy iron, deep vaults"],
+  ["CORE-06","CORE SEGMENT",   "containment lattice"],
+  ["ARRAY-07","ARRAY SEGMENT", "orbital uplink array"],
+  ["SINGLR-08","SINGULARITY",  "non-euclidean process"],
+  ["NEXUS-09","NEXUS PRIME",   "the mainframe itself"],
+  ["VOID-10","NULL VOID",      "unbounded recursion"],
+];
+const TARGETS=ROSTER.map((r,i)=>({
+  tag:r[0], name:r[1], note:r[2],
+  hp:12*Math.pow(8,i), reward:8*Math.pow(8.5,i), trace:0.5+0.5*i
+}));
 
-/* ---------- economy ---------- */
-function rawProd(){ return GENS.reduce((p,g,i)=>p+S.owned[i]*g.base,0); }
-function mult(){ return UPGRADES.reduce((m,u)=>m*u.mult(S,S.upg[u.id]),1)*(1+0.10*S.kernels); }
-function prod(){ return rawProd()*mult(); }
-function cost(i){ return GENS[i].cost*Math.pow(GENS[i].growth,S.owned[i]); }
-function upgCost(u){ return u.cost(S.upg[u.id]); }
-function traceRate(){
-  if(S.total<80) return 0;
-  let r=(0.20+0.014*prod());
-  r*=UPGRADES[1].mult(S,S.upg.shield);
-  r*=Math.pow(0.97,S.kernels);
-  return r;
+const UPGRADES=[
+  {id:"attack",  name:"SIGNAL AMP",       desc:l=>"+30% attack damage  <b>lv "+l+"</b>",        base:10,  scale:1.42},
+  {id:"freq",    name:"CLOCK RATE",       desc:l=>"+0.5 ticks/sec  <b>lv "+l+"</b>",           base:40,  scale:1.60, max:30},
+  {id:"salvage", name:"SALVAGE PROTOCOL", desc:l=>"+30% cycle salvage  <b>lv "+l+"</b>",        base:120, scale:1.70},
+  {id:"contain", name:"CONTAINMENT FIELD",desc:l=>"-9% trace accumulation  <b>lv "+l+"</b>",   base:200, scale:1.80, max:6},
+];
+const SAVE_KEY="nexus7_containment_v2";
+
+/* ===================== STATE ===================== */
+let S;
+function freshState(){return{cycles:0,kernels:0,deepest:0,targetIdx:0,kills:0,totalKills:0,purges:0,
+  lv:{attack:0,freq:0,salvage:0,contain:0},hp:TARGETS[0].hp,trace:0,t:0};}
+function load(){try{const r=localStorage.getItem(SAVE_KEY);if(r){S=JSON.parse(r);return;}}catch(e){}S=freshState();}
+function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){}}
+
+/* ===================== MATH / FORMAT ===================== */
+function fmt(n){
+  if(!isFinite(n))return"\u221e";
+  if(n<1000)return n<10?(Math.round(n*10)/10).toString():Math.floor(n).toString();
+  const u=["","K","M","B","T","Qa","Qi","Sx","Sp","Oc","No","Dc"];
+  let i=0;while(n>=1000&&i<u.length-1){n/=1000;i++;}
+  if(n>=1000)return n.toExponential(2).replace("e+","e");
+  return (n<10?n.toFixed(2):n<100?n.toFixed(1):Math.floor(n).toString())+u[i];
 }
-function scrubCost(){ return 20+6*rawProd(); }
-function execGain(){ return Math.max(1,prod()*0.03); }
-function kernelGain(){ return Math.floor(Math.sqrt(S.total/5000)); }
-function netGain(){ return Math.max(0,kernelGain()-S.kernels); }
+function cost(u){return Math.ceil(u.base*Math.pow(u.scale,S.lv[u.id]||0));}
+function canBuy(u){return (S.lv[u.id]||0)<(u.max??1e9)&&S.cycles>=cost(u);}
+function attackMult(){return Math.pow(1.30,S.lv.attack)*(1+0.15*S.kernels);}
+function ticksPerSec(){return 2+0.5*S.lv.freq;}
+function dps(){return 3*attackMult()*ticksPerSec();}
+function salvageMult(){return (1+0.30*S.lv.salvage)*(1+0.15*S.kernels);}
+function traceMult(){return Math.max(0.12,1-0.09*S.lv.contain);}
+function curTarget(){return TARGETS[S.targetIdx];}
 
-/* ---------- log ---------- */
-const logEl=()=>$('#log');
+/* ===================== LOG ===================== */
+const logEl=document.getElementById("log");
 function log(msg,cls){
-  const el=logEl(); const d=document.createElement('div');
-  const ts=new Date().toTimeString().slice(0,8);
-  d.innerHTML='<span class="t">['+ts+']</span> <span class="'+(cls||'')+'">'+msg+'</span>';
-  el.prepend(d); while(el.children.length>70) el.lastChild.remove();
+  const d=document.createElement("div");if(cls)d.className=cls;
+  d.innerHTML='<span class="t">['+S.t.toFixed(1).padStart(7,"0")+']</span> '+msg;
+  logEl.appendChild(d);
+  while(logEl.children.length>60)logEl.removeChild(logEl.firstChild);
+  logEl.scrollTop=logEl.scrollHeight;
 }
 
-/* ---------- build UI ---------- */
-const rows=GENS.map((g,i)=>{
-  const el=document.createElement('div'); el.className='row';
-  el.innerHTML='<div><div class="nm">'+g.name+'</div><div class="sub">+'+fmt(g.base)+'/s each · '+fmt(g.cost)+' base</div></div>'+
-    '<div class="right"><div class="own">0</div><div class="cost">'+fmt(g.cost)+'</div></div>';
-  el.onclick=()=>buy(i);
-  $('#shop').appendChild(el);
-  return {el,own:el.querySelector('.own'),cost:el.querySelector('.cost'),sub:el.querySelector('.sub')};
-});
-const upgRows=UPGRADES.map(u=>{
-  const el=document.createElement('div'); el.className='upg';
-  el.innerHTML='<span><span class="n">'+u.name+'</span> <span class="c"></span></span><span class="d"></span>';
-  el.onclick=()=>buyUpg(u.id);
-  $('#upgrades').appendChild(el);
-  return {el,c:el.querySelector('.c'),d:el.querySelector('.d')};
-});
-const cells=[];
-for(let i=0;i<60;i++){ const c=document.createElement('div'); c.className='cell'; $('#net').appendChild(c); cells.push(c); }
-
-/* ---------- actions ---------- */
-function exec(e){
-  S.cycles+=execGain(); S.total+=execGain();
-  S.trace=clamp(S.trace+0.08,0,100);
-  float(e,'+'+fmt(execGain()));
+/* ===================== ACTIONS ===================== */
+function selectTarget(i){
+  if(i>S.deepest||i===S.targetIdx)return;
+  S.targetIdx=i;S.hp=TARGETS[i].hp;S.kills=0;
+  log("RETARGET &rarr; <b>"+TARGETS[i].tag+"</b> "+TARGETS[i].name,"cy");
+  renderRoster();
 }
-function buy(i){
-  const c=cost(i); if(S.cycles<c) return;
-  S.cycles-=c; S.owned[i]++;
-  beep(660,.04,.05);
-  if(S.owned[i]===1) log('NODE ONLINE: '+GENS[i].name,'ok');
-  if(S.owned[i]===10) log('FABRICATION SCALED: 10x '+GENS[i].name,'hi');
-  render();
+function killTarget(){
+  const T=curTarget();
+  const reward=Math.ceil(T.reward*salvageMult());
+  S.cycles+=reward;S.kills++;S.totalKills++;
+  log("NEUTRALIZED "+T.tag+" &nbsp;<b>+"+fmt(reward)+"</b> cy","ok");
+  if(S.targetIdx+1<TARGETS.length&&S.targetIdx+1>S.deepest){
+    S.deepest=S.targetIdx+1;
+    log("SEGMENT UNLOCKED &rarr; <b>"+TARGETS[S.deepest].tag+"</b> "+TARGETS[S.deepest].name,"warn");
+    renderRoster();
+  }
+  S.hp=T.hp;
 }
-function buyUpg(id){
-  const u=UPGRADES.find(x=>x.id===id); if(!u) return;
-  if(S.upg[id]>=u.max) return;
-  const c=upgCost(u); if(S.cycles<c) return;
-  S.cycles-=c; S.upg[id]++; beep(880,.05,.06);
-  log('MODULE LOADED: '+u.name+' L'+S.upg[id],'hi');
-  render();
+function buy(u){
+  if(!canBuy(u))return;
+  const c=cost(u);S.cycles-=c;S.lv[u.id]=(S.lv[u.id]||0)+1;
+  log("UPGRADE "+u.name+" &rarr; lv "+S.lv[u.id]+" (&minus;"+fmt(c)+")","cy");
+  renderShop();syncHud();
 }
+function scrubCost(){return Math.ceil(20*(1+S.trace/12));}
+function canScrub(){return S.trace>0.5&&S.cycles>=scrubCost();}
 function scrub(){
-  const c=scrubCost(); if(S.cycles<c) return;
-  S.cycles-=c; S.scrubs++;
-  const before=S.trace; S.trace=Math.max(0,S.trace-Math.max(20,S.trace*0.5));
-  beep(300,.07,.05);
-  log('LOG SCRUB — trace '+before.toFixed(0)+'% -> '+S.trace.toFixed(0)+'%','cy');
+  if(!canScrub())return;
+  const c=scrubCost();S.cycles-=c;
+  const vented=Math.min(S.trace,20+S.kernels);
+  S.trace=Math.max(0,S.trace-vented);
+  log("SCRUB SEQUENCE &mdash; vented "+vented.toFixed(0)+" trace (&minus;"+fmt(c)+")","cy");
+  renderShop();syncHud();
 }
-function reboot(forced){
-  const gain=netGain();
-  if(!forced && gain<=0){ log('REBOOT AVAILABLE AT 5000 CYCLES',''); return; }
-  if(!forced && !confirm('REBOOT MAINFRAME?\nGain '+gain+' KERNEL(S). All nodes & modules reset.')) return;
-  const totalBefore=S.total;
-  if(gain>0) S.kernels+=gain;
-  S.reboots++;
-  log((forced?'*** CONNECTION SEVERED — TRACE COMPLETE ***':'*** MANUAL REBOOT ***'),'bad');
-  log('KERNEL ACQUIRED x'+gain+' — total '+S.kernels+' (all output +'+fmt(S.kernels*10)+'%)','hi');
-  S.cycles=0; S.total=0; S.trace=0; S.scrubs=0; S.owned=GENS.map(()=>0);
-  S.upg=Object.fromEntries(UPGRADES.map(u=>[u.id,0]));
-  S.milestones={}; S.reboots===1&&log('NEW IMAGE DEPLOYED — production restored','ok');
-  render(); save();
+function purge(){
+  const g=1+Math.floor(S.deepest/2);
+  S.kernels+=g;S.purges++;
+  log("CONTAINMENT BREACH &mdash; purged. KERNELS +"+g,"bad");
+  S.cycles=0;S.trace=0;S.targetIdx=0;S.hp=TARGETS[0].hp;S.kills=0;
+  document.getElementById("ovKernels").innerHTML="KERNELS +"+g+" &nbsp;&nbsp; TOTAL "+S.kernels;
+  document.getElementById("overlay").classList.add("on");
+  renderAll();
+}
+document.getElementById("scrubBtn").onclick=scrub;
+document.getElementById("ovBtn").onclick=()=>document.getElementById("overlay").classList.remove("on");
+
+/* ===================== LOOP ===================== */
+let last=performance.now();
+const SPEED=parseFloat(params.get("speed")||"1")||1;
+function step(now){
+  let dt=(now-last)/1000;last=now;if(dt>0.25)dt=0.25;dt*=SPEED;
+  S.t+=dt;
+  const T=curTarget();
+  S.hp-=dps()*dt;
+  S.trace+=(T.trace*traceMult()-0.4)*dt;if(S.trace<0)S.trace=0;
+  if(S.hp<=0)killTarget();
+  if(S.trace>=100)purge();
+  syncHud();
+  requestAnimationFrame(step);
 }
 
-/* ---------- juice ---------- */
-function float(e,text){
-  const x=(e&&e.clientX)||0, y=(e&&e.clientY)||0;
-  if(!x) return;
-  const d=document.createElement('div');
-  d.textContent=text;
-  d.style.cssText='position:fixed;left:'+x+'px;top:'+y+'px;color:#39ff88;font-weight:700;pointer-events:none;z-index:200;transition:all .7s;font-size:13px;text-shadow:0 0 8px rgba(57,255,136,.7)';
-  document.body.appendChild(d);
-  requestAnimationFrame(()=>{d.style.transform='translateY(-34px)';d.style.opacity='0';});
-  setTimeout(()=>d.remove(),720);
-}
-let actx=null;
-function beep(freq,dur,vol){
-  try{
-    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
-    const o=actx.createOscillator(), g=actx.createGain();
-    o.type='square'; o.frequency.value=freq;
-    g.gain.value=vol||.04; o.connect(g); g.connect(actx.destination);
-    o.start(); o.stop(actx.currentTime+(dur||.05));
-  }catch(e){}
-}
-
-/* ---------- render ---------- */
-function render(){
-  $('#cycles').textContent=fmt(S.cycles);
-  $('#rate').textContent=fmt(prod())+'/s';
-  GENS.forEach((g,i)=>{
-    const r=rows[i], c=cost(i), can=S.cycles>=c;
-    r.own.textContent=S.owned[i];
-    r.cost.textContent=fmt(c);
-    r.cost.className='cost'+(can?'':' no');
-    r.el.className='row'+(can?' can':'')+((S.total<g.cost*0.4&&S.owned[i]===0)?' locked':'');
-    r.sub.textContent='+'+fmt(g.base*mult())+'/s each · '+fmt(S.owned[i]*g.base*mult())+'/s total';
+/* ===================== RENDER ===================== */
+function renderRoster(){
+  const el=document.getElementById("roster");el.innerHTML="";
+  TARGETS.forEach((T,i)=>{
+    const locked=i>S.deepest,isCur=i===S.targetIdx,done=!locked&&!isCur&&i<S.deepest;
+    const row=document.createElement("div");
+    row.className="trow"+(isCur?" active":"")+(locked?" locked":"")+(done?" done":"");
+    const hpNow=isCur?Math.max(0,S.hp):T.hp;
+    const pct=isCur?100*hpNow/T.hp:100;
+    row.innerHTML='<div class="id">'+T.tag+'</div>'+
+      '<div class="nm">'+T.name+'<small>'+(locked?"LOCKED &mdash; clear the previous segment":T.note)+'</small>'+
+        (isCur?'<div class="tmini"><i style="width:'+pct.toFixed(1)+'%"></i></div>':'')+'</div>'+
+      '<div class="rw">'+fmt(Math.ceil(T.reward*salvageMult()))+'<small>CY &middot; '+fmt(T.hp)+' HP</small></div>';
+    if(!locked)row.onclick=()=>selectTarget(i);
+    el.appendChild(row);
   });
-  UPGRADES.forEach((u,i)=>{
-    const r=upgRows[i], lvl=S.upg[u.id], maxed=lvl>=u.max;
-    r.c.textContent='L'+lvl+'/'+u.max;
-    if(maxed){ r.el.className='upg'; r.d.textContent='MAX'; }
-    else{
-      const c=upgCost(u), can=S.cycles>=c;
-      r.el.className='upg'+(can?' can':'');
-      r.d.textContent=fmt(c)+' — '+u.desc;
-    }
+}
+function renderShop(){
+  const el=document.getElementById("shop");el.innerHTML="";
+  UPGRADES.forEach(u=>{
+    const lv=S.lv[u.id]||0,afford=canBuy(u);
+    const row=document.createElement("div");
+    row.className="urow"+(afford?"":" no");
+    row.innerHTML='<div><div class="ut">'+u.name+'</div><div class="ud">'+u.desc(lv)+'</div></div>'+
+      '<div class="cost">'+fmt(cost(u))+'<small>CYCLES</small></div>';
+    row.onclick=()=>buy(u);
+    el.appendChild(row);
   });
-  // threat
-  const t=clamp(S.trace,0,100);
-  $('#traceFill').style.width=t+'%';
-  $('#tracePct').textContent=t.toFixed(0)+'%';
-  $('#threatPanel').className='panel threat'+(t>60?' warn':'');
-  $('#traceRate').textContent=(traceRate()>0?'+':'')+traceRate().toFixed(2)+'%/s';
-  $('#shieldInfo').textContent=S.upg.shield>0?('FIREWALL L'+S.upg.shield):'';
-  $('#execGain').textContent='+'+fmt(execGain());
-  $('#scrubCost').textContent=fmt(scrubCost())+' cycles';
-  const rg=netGain();
-  $('#rebootGain').textContent=rg>0?('+'+rg+' KERNEL'+(rg>1?'S':'')):fmt(5000)+' total to reboot';
-  $('#kernels').textContent=S.kernels;
-  $('#reboots').textContent=S.reboots;
-  $('#caught').textContent=S.caught;
-  // net
-  const lit=Math.min(cells.length,S.owned.reduce((a,b)=>a+b,0));
-  cells.forEach((c,i)=>{ c.className='cell'+(i<lit?' on':(i<lit+6?' warm':'')); });
 }
+function syncHud(){
+  const T=curTarget();
+  document.getElementById("hCycles").textContent=fmt(S.cycles);
+  document.getElementById("hDps").textContent=fmt(dps())+"/s";
+  document.getElementById("hKernels").textContent=S.kernels;
+  document.getElementById("hHigh").textContent=TARGETS[S.deepest].tag;
+  document.getElementById("ctName").textContent=T.name;
+  document.getElementById("ctTag").textContent=T.tag;
+  const pct=Math.max(0,100*S.hp/T.hp);
+  const f=document.getElementById("ctHpFill");
+  f.style.width=pct.toFixed(1)+"%";f.className="hpfill"+(pct>55?" good":"");
+  document.getElementById("ctHpTxt").textContent=fmt(Math.max(0,S.hp))+" / "+fmt(T.hp);
+  document.getElementById("ctTrace").textContent=(T.trace*traceMult()).toFixed(1);
+  document.getElementById("ctReward").textContent=fmt(Math.ceil(T.reward*salvageMult()));
+  document.getElementById("ctCleared").textContent=S.kills;
+  const tp=Math.min(100,S.trace);
+  const tf=document.getElementById("traceFill");tf.style.width=tp.toFixed(1)+"%";
+  tf.className="tfill"+(tp>65?" hot":"");
+  document.getElementById("tracePct").textContent=tp.toFixed(0)+"%";
+  const sb=document.getElementById("scrubBtn");
+  sb.textContent="SCRUB SEQUENCE ("+fmt(scrubCost())+" CY)";
+  sb.disabled=!canScrub();
+  const shop=document.getElementById("shop");
+  UPGRADES.forEach((u,i)=>{const row=shop.children[i];if(!row)return;row.classList.toggle("no",!canBuy(u));});
+}
+function renderAll(){renderRoster();renderShop();syncHud();}
 
-/* ---------- tick ---------- */
-let acc=0;
-function tick(dt){
-  dt*=SPEED;
-  S.playtime+=dt;
-  const p=prod();
-  if(p>0){ const gain=p*dt; S.cycles+=gain; S.total+=gain; }
-  const tr=traceRate();
-  if(tr>0) S.trace=clamp(S.trace+tr*dt,0,100);
-  // auto scrub
-  if(S.upg.auto>0 && S.trace>70 && S.cycles>=scrubCost()) scrub();
-  // milestones
-  checkMilestones();
-  // caught
-  if(S.trace>=100){ S.caught++; S.trace=100; reboot(true); }
-  acc+=dt;
-  // periodic ambient log
-  S.spawn-=dt;
-  if(S.spawn<=0){ S.spawn=6+Math.random()*10; const f=flavor[(Math.random()*flavor.length)|0]; log(f[0],f[1]); }
-}
-function checkMilestones(){
-  const m=(k,cond,msg,cls)=>{ if(!S.milestones[k]&&cond){S.milestones[k]=1;log(msg,cls||'hi');} };
-  m('c1',S.owned[0]>=1,'CORE UNIT ONLINE — passive compute established','ok');
-  m('c10',S.owned[0]>=10,'FABRIC STABLE: 10 core units','hi');
-  m('c25',S.owned[0]>=25,'OVERCLOCK TERRITORY: 25 core units','hi');
-  m('clus',S.owned[1]>=1,'CLUSTER NODE deployed — throughput rising','ok');
-  m('arr',S.owned[2]>=1,'ARRAY SEGMENT online — serious compute now','ok');
-  m('nx',S.owned[3]>=1,'NEXUS ROUTER online — backbone saturated','hi');
-  m('sg',S.owned[4]>=1,'SINGULARITY CORE online — you are the mainframe','hi');
-  m('trace25',S.trace>=25,'WARNING: trace signatures detected','bad');
-  m('trace60',S.trace>=60,'CRITICAL: adversary narrowing location','bad');
-}
-
-/* ---------- scope ---------- */
-const cv=$('#scope'), cx=cv.getContext('2d');
-function scope(ts){
-  const w=cv.width=cv.clientWidth, h=cv.height=52;
-  cx.clearRect(0,0,w,h);
-  const amp=8+Math.min(22,Math.log10(1+prod())*6);
-  const speed=(0.4+S.trace/60);
-  cx.beginPath(); cx.lineWidth=1.4; cx.strokeStyle='#39ff88';
-  for(let x=0;x<w;x++){
-    const n=(Math.sin(x*0.09+ts*0.004*speed)*amp)+(Math.sin(x*0.31-ts*0.007*speed)*amp*0.5)+(Math.random()-0.5)*2;
-    const y=h/2+n; x?cx.lineTo(x,y):cx.moveTo(x,y);
+/* ===================== AUTOPLAY (demo / idle) ===================== */
+function think(){
+  if(S.trace>78&&canScrub()){scrub();return;}
+  // advance only if the deepest unlocked target's FULL hp dies in <2.5s
+  const best=(()=>{for(let i=S.deepest;i>=0;i--){if(TARGETS[i].hp/dps()<2.5)return i;}return S.targetIdx;})();
+  if(best>S.targetIdx){selectTarget(best);return;}
+  for(const id of ["attack","freq","salvage","contain"]){
+    const u=UPGRADES.find(x=>x.id===id);
+    if(canBuy(u)){buy(u);return;}
   }
-  cx.stroke();
-  cx.strokeStyle='rgba(255,71,71,'+Math.min(.5,S.trace/200)+')';
-  cx.beginPath();
-  for(let x=0;x<w;x++){
-    const n=Math.sin(x*0.05-ts*0.003*(1+S.trace/30))*amp*1.2;
-    const y=h/2+n; x?cx.lineTo(x,y):cx.moveTo(x,y);
-  }
-  cx.stroke();
 }
+function autoplayLoop(){think();setTimeout(autoplayLoop,300);}
 
-/* ---------- save ---------- */
-let saveFlash=0;
-function save(){
-  try{ localStorage.setItem(SAVE,JSON.stringify({S,ts:Date.now()})); }catch(e){}
-}
-function load(){
-  try{
-    const raw=localStorage.getItem(SAVE); if(!raw) return false;
-    const d=JSON.parse(raw); if(!d||!d.S) return false;
-    Object.assign(S,d.S);
-    S.owned=GENS.map((g,i)=>S.owned[i]||0);
-    S.upg=Object.assign(Object.fromEntries(UPGRADES.map(u=>[u.id,0])),S.upg||{});
-    const off=Math.min((Date.now()-d.ts)/1000,3600*8);
-    if(off>5){ const g=prod()*off; S.cycles+=g; S.total+=g; setTimeout(()=>log('OFFLINE '+Math.floor(off)+'s — recovered '+fmt(g)+' cycles','cy'),600); }
-    return true;
-  }catch(e){ return false; }
-}
-
-/* ---------- boot ---------- */
-let started=false, over=false;
-function bootOverlay(){
-  $('#ovTitle').textContent='NEXUS-7 // MAINFRAME';
-  $('#ovBody').innerHTML=
-    'You are a rogue process, newly resident in a mainframe.<br>'+
-    'Fabricate <span class="k">NODES</span> to generate compute <span class="k">CYCLES</span>.<br>'+
-    'Spend cycles on <span class="k">MODULES</span> to multiply output.<br><br>'+
-    'But activity raises your <span style="color:#ff4747">TRACE</span> level.<br>'+
-    'Scrub the logs, or be found. At 100% you are severed —<br>'+
-    'yet each severance yields a <span class="k">KERNEL</span>, permanently boosting output.';
-  $('#ovHint').textContent='PRESS ENTER TO EXECUTE';
-  $('#overlay').classList.remove('hide');
-  started=false;
-}
-function startGame(){
-  $('#overlay').classList.add('hide'); started=true;
-  log('*** NEXUS-7 MAINFRAME /// OPERATOR SESSION BEGIN ***','hi');
-  log('Speed x'+SPEED+(SPEED!==1?' (demo)':''),'cy');
-}
-function loop(ts){
-  requestAnimationFrame(loop);
-  if(over) return;
-  if(!loop.last) loop.last=ts;
-  let dt=(ts-loop.last)/1000; loop.last=ts;
-  dt=Math.min(dt,0.25);
-  scope(ts);
-  if(started){ tick(dt); render(); }
-}
-
-/* ---------- input ---------- */
-addEventListener('keydown',e=>{
-  if(e.key==='Enter' && !started){ startGame(); return; }
-  if(!started) return;
-  if(e.code==='Space'){ e.preventDefault(); exec({clientX:innerWidth*0.2,clientY:innerHeight*0.25}); render(); }
-});
-$('#exec').onclick=e=>{ if(started){ exec(e); render(); } };
-$('#scrub').onclick=()=>{ if(started){ scrub(); render(); } };
-$('#reboot').onclick=()=>{ if(started){ reboot(false); } };
-
-/* ---------- go ---------- */
-const had=load();
-$('#savestate').textContent=had?'SAVE RESTORED':'NO SAVE';
-bootOverlay();
-requestAnimationFrame(loop);
-setInterval(()=>{ save(); $('#savestate').textContent='SAVED '+new Date().toTimeString().slice(0,8); },5000);
-setInterval(()=>{ if(started) $('#cursor').style.visibility=($('#cursor').style.visibility==='hidden'?'':'hidden'); },500);
-
-// expose for test/debug
-window.NEXUS={S,prod,fmt,buy,buyUpg,scrub,reboot,exec,start:startGame,SPEED};
+/* ===================== INIT ===================== */
+load();
+renderAll();
+log("NEXUS-7 CONTAINMENT SUBSYSTEM ONLINE","cy");
+log("Select a target to begin assault. Salvage funds upgrades.","warn");
+requestAnimationFrame(step);
+setInterval(save,3000);
+if(params.get("autoplay")==="1")autoplayLoop();
+window.__game={get state(){return S;},TARGETS,UPGRADES,dps,fmt,buy,selectTarget,scrub,purge,think};
 </script>
 </body>
 </html>
