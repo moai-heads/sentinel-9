@@ -2,546 +2,508 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>GLOBAL DEFENSE NETWORK — TERMINAL</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NEXUS-7 // MAINFRAME</title>
 <style>
-  :root{
-    --amber:#ffb000; --amber-dim:#7a5200; --grn:#33ff66; --grn-dim:#0f5f22;
-    --red:#ff2d2d; --cyan:#39d0ff; --bg:#050805;
-  }
-  *{box-sizing:border-box; margin:0; padding:0;}
-  html,body{height:100%;background:#000;overflow:hidden;}
-  body{
-    font-family:"Courier New",monospace; color:var(--amber);
-    display:flex;align-items:center;justify-content:center;
-  }
-  #screen{
-    position:relative; width:1280px;height:800px; background:var(--bg);
-    overflow:hidden; box-shadow:0 0 120px #000 inset;
-    transform-origin:center center;
-  }
-  /* ---- CRT overlays ---- */
-  #scan{position:absolute;inset:0;z-index:60;pointer-events:none;
-    background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,rgba(0,0,0,0) 1px 3px);
-    mix-blend-mode:multiply;}
-  #glow{position:absolute;inset:0;z-index:61;pointer-events:none;
-    background:radial-gradient(ellipse at 50% 50%,rgba(255,176,0,.06) 0%,rgba(0,0,0,.28) 100%);}
-  #flick{position:absolute;inset:0;z-index:62;pointer-events:none;background:#fff;opacity:0;
-    animation:flick 5.5s infinite steps(1);}
-  @keyframes flick{0%,97%{opacity:0}97.6%{opacity:.035}98%{opacity:0}99%{opacity:.02}100%{opacity:0}}
+:root{
+  --bg:#070707; --panel:#0d0d0f; --panel2:#111116; --line:#20202a;
+  --amber:#ffb000; --amber-dim:#8a6200; --grn:#39ff88; --red:#ff4747;
+  --cyan:#5ad7ff; --mag:#d47bff; --txt:#c9b98c;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--txt);
+  font:13px/1.45 "SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace;
+  overflow:hidden; letter-spacing:.02em;
+}
+#crt,#vig{position:fixed;inset:0;pointer-events:none;z-index:99}
+#crt{background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0 2px,rgba(0,0,0,.28) 2px 3px);mix-blend-mode:multiply;opacity:.55}
+#vig{background:radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(0,0,0,.75) 100%)}
+#app{height:100%;display:flex;flex-direction:column;padding:10px 12px;gap:9px}
 
-  /* ---- header ---- */
-  header{
-    height:34px;display:flex;align-items:center;gap:18px;padding:0 12px;
-    border-bottom:1px solid var(--amber-dim);
-    background:linear-gradient(180deg,#1a1200,#0a0800);
-    font-size:13px;letter-spacing:2px;text-shadow:0 0 6px var(--amber);
-    position:relative;z-index:10;
-  }
-  header .blink{animation:bl 1s steps(1) infinite;}
-  @keyframes bl{50%{opacity:0}}
-  header .right{margin-left:auto;display:flex;gap:18px;color:var(--grn);text-shadow:0 0 6px var(--grn)}
-  .rec{color:var(--red)!important;text-shadow:0 0 6px var(--red)!important}
+header{display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--line);padding-bottom:7px}
+.brand{color:var(--amber);font-weight:700;letter-spacing:.14em;text-shadow:0 0 10px rgba(255,176,0,.5)}
+.brand b{color:var(--grn)}
+.cur{margin-left:auto;text-align:right;line-height:1.1}
+.cur .n{font-size:26px;color:var(--grn);text-shadow:0 0 12px rgba(57,255,136,.45);font-weight:700}
+.cur .r{font-size:11px;color:var(--amber-dim)}
+.cur .lbl{font-size:10px;color:#6a5b34;letter-spacing:.2em}
 
-  /* ---- layout ---- */
-  #grid{
-    position:absolute;top:34px;left:0;right:0;bottom:96px;
-    display:grid;grid-template-columns:300px 1fr 300px;gap:8px;padding:8px;
-  }
-  .panel{
-    border:1px solid var(--amber-dim); background:rgba(12,16,9,.72);
-    display:flex;flex-direction:column;position:relative;overflow:hidden;
-  }
-  .panel h2{
-    font-size:11px;letter-spacing:2px;font-weight:400;padding:4px 6px;
-    border-bottom:1px solid var(--amber-dim);color:var(--amber);
-    background:rgba(255,176,0,.07);display:flex;justify-content:space-between;
-  }
-  .panel .body{flex:1;overflow:hidden;position:relative;}
-  .col{display:flex;flex-direction:column;gap:8px;min-height:0;}
+main{flex:1;display:grid;grid-template-columns:1.08fr .92fr;gap:9px;min-height:0}
+.col{display:flex;flex-direction:column;gap:9px;min-height:0}
+.panel{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:3px;padding:9px 10px;position:relative}
+.panel h2{font-size:10px;letter-spacing:.22em;color:var(--amber-dim);font-weight:600;margin-bottom:7px;text-transform:uppercase}
+.panel h2:before{content:"// ";color:#4a3d1c}
 
-  /* ---- globe ---- */
-  #globeWrap{position:relative;flex:1;display:flex;align-items:center;justify-content:center;}
-  canvas{display:block;}
-  #globeLabel{position:absolute;left:10px;top:8px;font-size:11px;letter-spacing:2px;color:var(--grn);text-shadow:0 0 6px var(--grn)}
-  #globeMeta{position:absolute;right:10px;bottom:8px;font-size:11px;color:var(--amber);text-align:right;line-height:1.5}
+/* actions */
+.actions{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:8px}
+button{
+  font:inherit;cursor:pointer;background:#141419;color:var(--amber);
+  border:1px solid #33333f;border-radius:3px;padding:9px 8px;text-transform:uppercase;
+  letter-spacing:.09em;font-size:12px;transition:.08s;position:relative;
+}
+button:hover:not(:disabled){background:#1d1d25;border-color:var(--amber);box-shadow:0 0 12px rgba(255,176,0,.22) inset}
+button:active:not(:disabled){transform:translateY(1px)}
+button:disabled{opacity:.35;cursor:not-allowed}
+button.big{font-size:15px;font-weight:700;color:#0a0a0a;background:var(--amber);border-color:var(--amber);padding:12px 8px}
+button.big:hover{background:#ffc633;box-shadow:0 0 20px rgba(255,176,0,.55)}
+button.danger{color:var(--red);border-color:#40222a}
+button.danger:hover{border-color:var(--red);box-shadow:0 0 12px rgba(255,71,71,.25) inset}
+button.go{color:var(--grn);border-color:#1f4030}
+button.go:hover{border-color:var(--grn)}
+.actions button .sub{display:block;font-size:10px;opacity:.8;margin-top:2px;text-transform:none;letter-spacing:.03em}
 
-  /* ---- logs ---- */
-  #log{font-size:12px;line-height:1.45;padding:6px;color:var(--grn);text-shadow:0 0 4px rgba(51,255,102,.7);white-space:pre-wrap;overflow:hidden;height:100%}
-  #log .warn{color:var(--amber);text-shadow:0 0 4px rgba(255,176,0,.7)}
-  #log .bad{color:var(--red);text-shadow:0 0 4px rgba(255,45,45,.8)}
-  #hex{font-size:11px;line-height:1.4;padding:6px;color:var(--cyan);text-shadow:0 0 4px rgba(57,208,255,.6);white-space:pre;overflow:hidden;height:100%}
+/* shop */
+.shop{display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1;min-height:0;padding-right:2px}
+.row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:3px;background:#0b0b0e;cursor:pointer;transition:.08s}
+.row:hover{border-color:#3a3a48;background:#101016}
+.row.can{border-color:var(--grn);background:#0c1410}
+.row.can:hover{box-shadow:0 0 14px rgba(57,255,136,.13)}
+.row.locked{opacity:.4}
+.row .nm{color:var(--amber);font-size:12px;letter-spacing:.06em}
+.row .sub{font-size:10.5px;color:#6a5b34;margin-top:2px}
+.row .right{text-align:right;min-width:104px}
+.row .own{font-size:17px;color:var(--grn);font-weight:700}
+.row .cost{font-size:11px;color:var(--txt)}
+.row.can .cost{color:var(--grn)}
+.row .cost.no{color:var(--red)}
 
-  /* ---- bars ---- */
-  .bar{margin:5px 6px;font-size:11px;letter-spacing:1px}
-  .bar .track{height:12px;border:1px solid var(--amber-dim);margin-top:3px;position:relative;background:rgba(0,0,0,.5)}
-  .bar .fill{position:absolute;left:0;top:0;bottom:0;width:0%;
-    background:repeating-linear-gradient(90deg,var(--amber) 0 6px,var(--amber-dim) 6px 8px);}
-  .bar .pct{float:right;color:var(--amber)}
-  .bar.crit .track{border-color:var(--red)} .bar.crit .fill{background:repeating-linear-gradient(90deg,var(--red) 0 6px,#5a0000 6px 8px)}
-  .bar.ok .fill{background:repeating-linear-gradient(90deg,var(--grn) 0 6px,var(--grn-dim) 6px 8px)}
+/* threat */
+.threat .bar{height:16px;background:#120a0a;border:1px solid #33202a;border-radius:2px;overflow:hidden;position:relative}
+.threat .fill{height:100%;width:0%;background:linear-gradient(90deg,#6a1a1a,var(--red));transition:width .18s;box-shadow:0 0 14px rgba(255,71,71,.5)}
+.threat .pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;text-shadow:0 0 4px #000;letter-spacing:.2em}
+.threat.warn .fill{background:linear-gradient(90deg,#6a5a1a,#ffb000)}
+.threat .rate{font-size:10.5px;color:#7a5a5a;margin-top:5px;display:flex;justify-content:space-between}
 
-  /* ---- big verdict ---- */
-  #verdict{
-    position:absolute;left:0;right:0;bottom:96px;top:34px;z-index:40;
-    display:none;align-items:center;justify-content:center;flex-direction:column;
-    background:rgba(0,0,0,.82);text-align:center;
-  }
-  #verdict.show{display:flex}
-  #verdict .big{
-    font-size:120px;letter-spacing:12px;font-weight:bold;
-    animation:pop .35s ease-out;
-  }
-  #verdict .sub{margin-top:10px;font-size:16px;letter-spacing:6px;opacity:.85}
-  @keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
-  .grant{color:var(--grn);text-shadow:0 0 30px var(--grn),0 0 80px var(--grn)}
-  .deny{color:var(--red);text-shadow:0 0 30px var(--red),0 0 80px var(--red)}
-  .deny .big{animation:pop .35s ease-out,shake .4s 2}
-  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-14px)}75%{transform:translateX(14px)}}
+/* network */
+.net{display:grid;grid-template-columns:repeat(12,1fr);gap:3px}
+.cell{aspect-ratio:1;background:#0f0f13;border:1px solid #1b1b22;border-radius:1px;transition:.4s}
+.cell.on{background:var(--grn);border-color:var(--grn);box-shadow:0 0 7px rgba(57,255,136,.6)}
+.cell.warm{background:#2a4a1a;border-color:#3a5a1a}
 
-  /* ---- footer / fake waveform + status ---- */
-  footer{
-    position:absolute;left:0;right:0;bottom:0;height:96px;z-index:30;
-    border-top:1px solid var(--amber-dim);background:linear-gradient(180deg,#0a0800,#000);
-    display:grid;grid-template-columns:200px 1fr 260px;
-  }
-  footer .cell{border-right:1px solid var(--amber-dim);padding:4px 6px;font-size:11px;letter-spacing:1px;overflow:hidden}
-  footer .cell:last-child{border-right:0}
-  #wave{width:100%;height:100%}
-  #keys{color:var(--grn);line-height:1.5}
-  #keys b{color:var(--amber);font-weight:400}
+/* log */
+.log{font-size:11px;line-height:1.6;overflow-y:auto;flex:1;min-height:0;color:#8a7a55}
+.log div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log .ok{color:var(--grn)} .log .bad{color:var(--red)} .log .hi{color:var(--amber)} .log .cy{color:var(--cyan)}
+.log .t{color:#4a3d1c}
 
-  /* ---- boot ---- */
-  #boot{position:absolute;inset:0;z-index:80;background:#000;padding:22px 26px;
-    font-size:15px;line-height:1.55;color:var(--grn);text-shadow:0 0 6px var(--grn);white-space:pre-wrap}
-  #boot .amber{color:var(--amber);text-shadow:0 0 6px var(--amber)}
-  .cursor{background:var(--grn);color:#000}
+canvas{width:100%;display:block;height:52px}
+.foot{display:flex;gap:14px;font-size:10px;color:#5a4d2a;border-top:1px solid var(--line);padding-top:6px}
+.foot b{color:var(--amber)}
+.foot .sp{margin-left:auto}
+.upgrow{display:flex;gap:6px;flex-wrap:wrap}
+.upg{flex:1 1 46%;display:flex;justify-content:space-between;gap:6px;align-items:center;padding:6px 8px;border:1px solid var(--line);border-radius:3px;background:#0b0b0e;cursor:pointer;font-size:11px}
+.upg:hover{border-color:#3a3a48}
+.upg.can{border-color:var(--cyan)}
+.upg .c{color:var(--cyan)} .upg.can .c{color:var(--grn)}
+.upg .n{color:var(--amber)}
+.overlay{position:fixed;inset:0;background:rgba(3,3,3,.86);display:flex;align-items:center;justify-content:center;z-index:120;backdrop-filter:blur(2px)}
+.overlay .box{border:1px solid var(--amber-dim);background:#0a0a0c;padding:26px 34px;text-align:center;max-width:560px;box-shadow:0 0 60px rgba(0,0,0,.9)}
+.overlay h1{color:var(--amber);font-size:22px;letter-spacing:.2em;margin-bottom:12px;text-shadow:0 0 14px rgba(255,176,0,.5)}
+.overlay p{color:var(--txt);font-size:12.5px;line-height:1.9;margin-bottom:8px}
+.overlay .k{color:var(--grn)}
+.hide{display:none}
 </style>
 </head>
 <body>
-<div id="screen">
+<div id="crt"></div><div id="vig"></div>
+
+<div id="app">
   <header>
-    <span>GLOBAL DEFENSE NETWORK</span>
-    <span class="blink">■</span>
-    <span>SECURITY CLEARANCE: <span style="color:var(--red)">ULTRA</span></span>
-    <span class="right">
-      <span>UPLINK <span style="color:var(--grn)">14.4 kbps</span></span>
-      <span>NODE <span id="nodeid">0x4F2A</span></span>
-      <span id="clock">--:--:--</span>
-      <span class="rec">● REC</span>
-    </span>
+    <div class="brand">NEXUS-7 <b>//</b> MAINFRAME <span id="cursor">_</span></div>
+    <div class="cur">
+      <div class="lbl">COMPUTE CYCLES</div>
+      <div class="n" id="cycles">0</div>
+      <div class="r" id="rate">0/s</div>
+    </div>
   </header>
 
-  <div id="grid">
-    <!-- LEFT -->
+  <main>
     <div class="col">
-      <div class="panel" style="flex:1.15">
-        <h2><span>// TRACE ROUTE</span><span id="hopct">0/14</span></h2>
-        <div class="body"><div id="hex"></div></div>
-      </div>
-      <div class="panel" style="flex:1">
-        <h2><span>// SUBSYSTEMS</span><span>LIVE</span></h2>
-        <div class="body" id="bars" style="padding:2px 0"></div>
-      </div>
-    </div>
-
-    <!-- CENTER -->
-    <div class="col">
-      <div class="panel" style="flex:1.4">
-        <h2><span>// GLOBAL SATELLITE GRID</span><span id="globeStatus">SYNCHRONIZING…</span></h2>
-        <div class="body" id="globeWrap">
-          <canvas id="globe"></canvas>
-          <div id="globeLabel">ORBITAL SURVEILLANCE</div>
-          <div id="globeMeta">LAT 00.00<br>LON 00.00<br>SATS 24/24</div>
+      <div class="panel">
+        <h2>Operator Console</h2>
+        <div class="actions">
+          <button class="big" id="exec">Execute<span class="sub" id="execGain"></span></button>
+          <button class="go" id="scrub">Scrub Logs<span class="sub" id="scrubCost"></span></button>
+          <button class="danger" id="reboot">Reboot<span class="sub" id="rebootGain"></span></button>
         </div>
       </div>
-      <div class="panel" style="flex:1">
-        <h2><span>// SYSTEM LOG</span><span class="blink">▮</span></h2>
-        <div class="body"><div id="log"></div></div>
+
+      <div class="panel" style="flex:1;display:flex;flex-direction:column;min-height:0">
+        <h2>Node Fabrication</h2>
+        <div class="shop" id="shop"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Kernel Modules</h2>
+        <div class="upgrow" id="upgrades"></div>
       </div>
     </div>
 
-    <!-- RIGHT -->
     <div class="col">
-      <div class="panel" style="flex:1">
-        <h2><span>// TARGET PROFILE</span><span>LOCKED</span></h2>
-        <div class="body" id="target" style="padding:6px;font-size:11px;line-height:1.7;color:var(--amber)"></div>
+      <div class="panel threat" id="threatPanel">
+        <h2>Trace Level</h2>
+        <div class="bar"><div class="fill" id="traceFill"></div><div class="pct" id="tracePct">0%</div></div>
+        <div class="rate"><span id="traceRate">+0.0%/s</span><span id="shieldInfo"></span></div>
       </div>
-      <div class="panel" style="flex:1">
-        <h2><span>// NETWORK MAP</span><span id="pingCt">PINGS 0</span></h2>
-        <div class="body"><canvas id="map"></canvas></div>
+
+      <div class="panel">
+        <h2>Network Topology</h2>
+        <div class="net" id="net"></div>
       </div>
-      <div class="panel" style="flex:.9">
-        <h2><span>// ENCRYPTION</span><span id="keyStat">NONE</span></h2>
-        <div class="body" id="keys" style="padding:6px"></div>
+
+      <div class="panel">
+        <h2>Signal Spectrum</h2>
+        <canvas id="scope"></canvas>
+      </div>
+
+      <div class="panel" style="flex:1;display:flex;flex-direction:column;min-height:0">
+        <h2>System Log</h2>
+        <div class="log" id="log"></div>
+      </div>
+
+      <div class="foot">
+        <span>KERNELS <b id="kernels">0</b></span>
+        <span>REBOOTS <b id="reboots">0</b></span>
+        <span>TRACED <b id="caught">0</b></span>
+        <span class="sp" id="savestate">—</span>
       </div>
     </div>
+  </main>
+</div>
+
+<div class="overlay hide" id="overlay">
+  <div class="box">
+    <h1 id="ovTitle">NEXUS-7</h1>
+    <div id="ovBody"></div>
+    <p style="margin-top:16px"><span class="k" id="ovHint">PRESS ENTER</span></p>
   </div>
-
-  <!-- fake waveform + status strip -->
-  <footer>
-    <div class="cell">
-      <div style="color:var(--amber)">AUDIO INTERCEPT</div>
-      <div style="color:var(--grn)" id="freq">1420.405 MHz</div>
-      <div style="color:var(--grn)" id="vol">SIG ▮▮▮▮▯</div>
-    </div>
-    <div class="cell" style="position:relative;padding:0">
-      <canvas id="wave"></canvas>
-      <div style="position:absolute;left:8px;top:6px;font-size:10px;color:var(--amber);letter-spacing:2px">SPECTRAL ANALYSIS</div>
-    </div>
-    <div class="cell" id="statusCell">
-      <div style="color:var(--amber);letter-spacing:2px">STATUS</div>
-      <div id="status" style="color:var(--grn)">IDLE</div>
-      <div style="color:var(--amber-dim);margin-top:4px">PRESS <b style="color:var(--amber)">ENTER</b> TO EXECUTE</div>
-    </div>
-  </footer>
-
-  <!-- big verdict overlay -->
-  <div id="verdict"><div class="big" id="vBig"></div><div class="sub" id="vSub"></div></div>
-
-  <!-- boot overlay -->
-  <div id="boot"></div>
-
-  <div id="scan"></div><div id="glow"></div><div id="flick"></div>
 </div>
 
 <script>
-/* ============================ SCALE ============================ */
-function scale(){
-  const s=Math.min(innerWidth/1280,innerHeight/800);
-  document.getElementById('screen').style.transform=`scale(${s})`;
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const UNITS=['','K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc','UDc','DDc'];
+function fmt(n){
+  if(n<0) return '-'+fmt(-n);
+  if(n<1000) return (n<10 && n%1!==0)?n.toFixed(1):Math.floor(n).toString();
+  let u=0; while(n>=1000 && u<UNITS.length-1){n/=1000;u++;}
+  return n.toFixed(n<10?2:n<100?1:0)+UNITS[u];
 }
-addEventListener('resize',scale);scale();
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
-/* ============================ BOOT ============================ */
-const bootLines=[
- "<span class='amber'>GLOBAL DEFENSE NETWORK — SECURE TERMINAL v4.7.2</span>",
- "BIOS (C) 1987 CYBERDYNE SYSTEMS .......... OK",
- "MEMORY TEST ............... 640K OK",
- "MOUNTING /dev/sda1 ......... OK",
- "LOADING KERNEL MODULES ..... OK",
- "  > ndiswrapper  > traceroute  > blackice  > ghostproto",
- "TESTING CRYPTO ACCELERATOR . OK",
- "  > AES-256  > RSA-4096  > QUANTUM-LATTICE (BETA)",
- "NEGOTIATING UPLINK ......... 14.4 kbps",
- "  > HANDSHAKE OK",
- "  > PGP KEY EXCHANGE OK",
- "  > TUNNEL ESTABLISHED (port 22,1337)",
- "",
- "<span class='amber'>WARNING: UNAUTHORIZED ACCESS WILL BE PROSECUTED.</span>",
- "<span class='amber'>ALL ACTIVITY IS MONITORED AND LOGGED.</span>",
- "",
- "INITIALIZING INTERFACE",
+/* ---------- content tables ---------- */
+const GENS=[
+  {id:'core',   name:'CORE UNIT',       base:0.6,  cost:15,     growth:1.150},
+  {id:'cluster',name:'CLUSTER NODE',    base:5,    cost:180,    growth:1.165},
+  {id:'array',  name:'ARRAY SEGMENT',   base:38,   cost:2600,   growth:1.180},
+  {id:'nexus',  name:'NEXUS ROUTER',    base:260,  cost:42000,  growth:1.200},
+  {id:'sing',   name:'SINGULARITY CORE',base:2100, cost:750000, growth:1.225},
 ];
-const bootEl=document.getElementById('boot');
-let bi=0;
-function bootStep(){
-  if(bi<bootLines.length){
-    bootEl.innerHTML+=bootLines[bi++]+"\n";
-    setTimeout(bootStep, 65+Math.random()*90);
-  } else {
-    bootEl.innerHTML+="<span class='cursor'> </span>";
-    setTimeout(()=>{bootEl.style.transition='opacity .5s';bootEl.style.opacity=0;
-      setTimeout(()=>bootEl.remove(),520); start();},420);
-  }
-}
-bootStep();
-
-/* ============================ HELPERS ============================ */
-const $=id=>document.getElementById(id);
-const rnd=(a,b)=>a+Math.random()*(b-a);
-const ri=(a,b)=>Math.floor(rnd(a,b+1));
-const hex=n=>n.toString(16).toUpperCase().padStart(2,'0');
-const MAC=()=>Array.from({length:6},()=>hex(ri(0,255))).join(':');
-const IP=()=>`${ri(10,223)}.${ri(0,255)}.${ri(0,255)}.${ri(1,254)}`;
-const WORDS=["ALPHA","NATO","SATCOM","DEFCON","MKULTRA","RAVEN","ECHO","SIERRA","TANGO","OMEGA","PLUTO","CRYPT","VECTOR","NEXUS","SHADOW","ORION","HYDRA","ZULU","KILO","BRAVO","PHANTOM","GRID","IRON","COBALT","RAPTOR"];
-const pick=a=>a[Math.floor(Math.random()*a.length)];
-
-/* ============================ CLOCK ============================ */
-setInterval(()=>{
-  const d=new Date();
-  $('clock').textContent=[d.getHours(),d.getMinutes(),d.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':');
-  $('nodeid').textContent='0x'+hex(ri(0,255))+hex(ri(0,255));
-},1000);
-
-/* ============================ LOG ============================ */
-const logEl=$('log'); const logBuf=[];
-function logLine(txt,cls){
-  logBuf.push(cls?`<span class='${cls}'>${txt}</span>`:txt);
-  if(logBuf.length>18)logBuf.shift();
-  logEl.innerHTML=logBuf.join("<br>");
-}
-const LOGEV=[
- ()=>`CONNECTING TO NODE ${IP()}`,
- ()=>`HANDSHAKE ACCEPTED [${MAC()}]`,'',
- ()=>`DECRYPTING PACKET STREAM... ${ri(20,99)}%`,
- ()=>`<span class='warn'>ANOMALY DETECTED ON PORT ${ri(20,9999)}</span>`,
- ()=>`FIREWALL PENETRATED — LAYER ${ri(2,7)}`,
- ()=>`ROUTING THROUGH ${pick(WORDS)}-${ri(10,99)}`,
- ()=>`<span class='bad'>INTRUSION COUNTERMEASURE DEPLOYED</span>`,
- ()=>`BYPASSING COUNTERMEASURE... OK`,
- ()=>`DOWNLOADING ${pick(WORDS)}_${ri(100,999)}.DAT`,
- ()=>`UPLINK ${ri(70,99)}% — LATENCY ${ri(4,900)}ms`,
- ()=>`SATELLITE ${ri(1,24)} REALIGNED`,
- ()=>"",()=>`SPOOFING MAC ADDRESS → ${MAC()}`,
- ()=>`<span class='warn'>TRACE DETECTED: ${ri(1,9)} HOPS AWAY</span>`,
- ()=>`DEPLOYING ${pick(WORDS)} PROTOCOL`,
- ()=>`BREACHING SUBROUTINE ${hex(ri(0,255))}${hex(ri(0,255))}`,
+const UPGRADES=[
+  {id:'clock', name:'OVERCLOCK',   desc:'output x1.5',      cost:l=>800*Math.pow(8,l),      max:99, mult:(s,l)=>Math.pow(1.5,l)},
+  {id:'shield',name:'FIREWALL',    desc:'trace rate -10%',  cost:l=>400*Math.pow(5,l),      max:12, mult:(s,l)=>Math.pow(0.9,l)},
+  {id:'comp',  name:'COMPILER',    desc:'output x2',        cost:l=>6000*Math.pow(15,l),    max:8,  mult:(s,l)=>Math.pow(2,l)},
+  {id:'thread',name:'HYPER-THREAD',desc:'output x3',        cost:l=>120000*Math.pow(20,l),  max:6,  mult:(s,l)=>Math.pow(3,l)},
+  {id:'auto',  name:'AUTO-SCRUB',  desc:'scrub at 70% trace',cost:l=>25000,                 max:1,  mult:(s,l)=>1},
 ];
-function logTick(){ logLine(pick(LOGEV)()); }
-setInterval(logTick, 300);
-for(let i=0;i<14;i++)logTick();
+const flavor=[
+  ['INITIALISING KERNEL SUBSYSTEMS...','ok'],
+  ['NODE HANDSHAKE ACCEPTED','cy'],
+  ['HEURISTIC ROUTING ONLINE','cy'],
+  ['PACKET FRAGMENTATION MITIGATED',''],
+  ['ENTROPY POOL REFILLED',''],
+  ['MEMORY PAGE 0x7F2A WRITTEN',''],
+];
 
-/* ============================ HEX DUMP ============================ */
-const hexEl=$('hex'); let hopCount=0;
-function hexTick(){
-  const addr=ri(0x4000,0xBFFF);
-  let line=ri(0x1000,0xFFFF).toString(16).toUpperCase().padStart(8,'0')+'  ';
-  for(let i=0;i<12;i++)line+=hex(ri(0,255))+' ';
-  line+=' |';
-  let asc='';
-  for(let i=0;i<12;i++)asc+=String.fromCharCode(ri(33,126));
-  line+=asc+'|';
-  hexEl.innerHTML=line+"<br>"+hexEl.innerHTML;
-  if(hexEl.childNodes.length>34)hexEl.removeChild(hexEl.lastChild);
+/* ---------- state ---------- */
+const SAVE='nexus7_save_v1';
+let S={
+  cycles:0, total:0, kernels:0, trace:0, caught:0, reboots:0,
+  owned:GENS.map(()=>0),
+  upg:Object.fromEntries(UPGRADES.map(u=>[u.id,0])),
+  scrubs:0, last:Date.now(), playtime:0, milestones:{}, spawn:0
+};
+const params=new URLSearchParams(location.search);
+const SPEED=Math.max(0.1,parseFloat(params.get('speed'))||1);
+
+/* ---------- economy ---------- */
+function rawProd(){ return GENS.reduce((p,g,i)=>p+S.owned[i]*g.base,0); }
+function mult(){ return UPGRADES.reduce((m,u)=>m*u.mult(S,S.upg[u.id]),1)*(1+0.10*S.kernels); }
+function prod(){ return rawProd()*mult(); }
+function cost(i){ return GENS[i].cost*Math.pow(GENS[i].growth,S.owned[i]); }
+function upgCost(u){ return u.cost(S.upg[u.id]); }
+function traceRate(){
+  if(S.total<80) return 0;
+  let r=(0.20+0.014*prod());
+  r*=UPGRADES[1].mult(S,S.upg.shield);
+  r*=Math.pow(0.97,S.kernels);
+  return r;
 }
-setInterval(hexTick,140);
-for(let i=0;i<18;i++)hexTick();
+function scrubCost(){ return 20+6*rawProd(); }
+function execGain(){ return Math.max(1,prod()*0.03); }
+function kernelGain(){ return Math.floor(Math.sqrt(S.total/5000)); }
+function netGain(){ return Math.max(0,kernelGain()-S.kernels); }
 
-/* ============================ SUBSYSTEM BARS ============================ */
-const subs=[["CRYPTO ENGINE","ok",.9],["SATCOM UPLINK","",.7],["FIREWALL","",.6],
-            ["INTRUSION DETECT","crit",.35],["NEURAL NET","",.8],["GHOST PROTOCOL","ok",.95]];
-const barsEl=$('bars');
-subs.forEach((s,i)=>{
-  const d=document.createElement('div'); d.className='bar '+(s[1]==='crit'?'crit':s[1]==='ok'?'ok':'');
-  d.innerHTML=`<div><span>${s[0]}</span><span class="pct" data-i="${i}">0%</span></div>
-               <div class="track"><div class="fill" data-f="${i}"></div></div>`;
-  barsEl.appendChild(d);
+/* ---------- log ---------- */
+const logEl=()=>$('#log');
+function log(msg,cls){
+  const el=logEl(); const d=document.createElement('div');
+  const ts=new Date().toTimeString().slice(0,8);
+  d.innerHTML='<span class="t">['+ts+']</span> <span class="'+(cls||'')+'">'+msg+'</span>';
+  el.prepend(d); while(el.children.length>70) el.lastChild.remove();
+}
+
+/* ---------- build UI ---------- */
+const rows=GENS.map((g,i)=>{
+  const el=document.createElement('div'); el.className='row';
+  el.innerHTML='<div><div class="nm">'+g.name+'</div><div class="sub">+'+fmt(g.base)+'/s each · '+fmt(g.cost)+' base</div></div>'+
+    '<div class="right"><div class="own">0</div><div class="cost">'+fmt(g.cost)+'</div></div>';
+  el.onclick=()=>buy(i);
+  $('#shop').appendChild(el);
+  return {el,own:el.querySelector('.own'),cost:el.querySelector('.cost'),sub:el.querySelector('.sub')};
 });
-setInterval(()=>{
-  subs.forEach((s,i)=>{
-    s[2]=Math.max(.08,Math.min(.99,s[2]+rnd(-.06,.06)));
-    barsEl.querySelector(`[data-f="${i}"]`).style.width=(s[2]*100).toFixed(0)+'%';
-    barsEl.querySelector(`[data-i="${i}"]`).textContent=(s[2]*100).toFixed(0)+'%';
+const upgRows=UPGRADES.map(u=>{
+  const el=document.createElement('div'); el.className='upg';
+  el.innerHTML='<span><span class="n">'+u.name+'</span> <span class="c"></span></span><span class="d"></span>';
+  el.onclick=()=>buyUpg(u.id);
+  $('#upgrades').appendChild(el);
+  return {el,c:el.querySelector('.c'),d:el.querySelector('.d')};
+});
+const cells=[];
+for(let i=0;i<60;i++){ const c=document.createElement('div'); c.className='cell'; $('#net').appendChild(c); cells.push(c); }
+
+/* ---------- actions ---------- */
+function exec(e){
+  S.cycles+=execGain(); S.total+=execGain();
+  S.trace=clamp(S.trace+0.08,0,100);
+  float(e,'+'+fmt(execGain()));
+}
+function buy(i){
+  const c=cost(i); if(S.cycles<c) return;
+  S.cycles-=c; S.owned[i]++;
+  beep(660,.04,.05);
+  if(S.owned[i]===1) log('NODE ONLINE: '+GENS[i].name,'ok');
+  if(S.owned[i]===10) log('FABRICATION SCALED: 10x '+GENS[i].name,'hi');
+  render();
+}
+function buyUpg(id){
+  const u=UPGRADES.find(x=>x.id===id); if(!u) return;
+  if(S.upg[id]>=u.max) return;
+  const c=upgCost(u); if(S.cycles<c) return;
+  S.cycles-=c; S.upg[id]++; beep(880,.05,.06);
+  log('MODULE LOADED: '+u.name+' L'+S.upg[id],'hi');
+  render();
+}
+function scrub(){
+  const c=scrubCost(); if(S.cycles<c) return;
+  S.cycles-=c; S.scrubs++;
+  const before=S.trace; S.trace=Math.max(0,S.trace-Math.max(20,S.trace*0.5));
+  beep(300,.07,.05);
+  log('LOG SCRUB — trace '+before.toFixed(0)+'% -> '+S.trace.toFixed(0)+'%','cy');
+}
+function reboot(forced){
+  const gain=netGain();
+  if(!forced && gain<=0){ log('REBOOT AVAILABLE AT 5000 CYCLES',''); return; }
+  if(!forced && !confirm('REBOOT MAINFRAME?\nGain '+gain+' KERNEL(S). All nodes & modules reset.')) return;
+  const totalBefore=S.total;
+  if(gain>0) S.kernels+=gain;
+  S.reboots++;
+  log((forced?'*** CONNECTION SEVERED — TRACE COMPLETE ***':'*** MANUAL REBOOT ***'),'bad');
+  log('KERNEL ACQUIRED x'+gain+' — total '+S.kernels+' (all output +'+fmt(S.kernels*10)+'%)','hi');
+  S.cycles=0; S.total=0; S.trace=0; S.scrubs=0; S.owned=GENS.map(()=>0);
+  S.upg=Object.fromEntries(UPGRADES.map(u=>[u.id,0]));
+  S.milestones={}; S.reboots===1&&log('NEW IMAGE DEPLOYED — production restored','ok');
+  render(); save();
+}
+
+/* ---------- juice ---------- */
+function float(e,text){
+  const x=(e&&e.clientX)||0, y=(e&&e.clientY)||0;
+  if(!x) return;
+  const d=document.createElement('div');
+  d.textContent=text;
+  d.style.cssText='position:fixed;left:'+x+'px;top:'+y+'px;color:#39ff88;font-weight:700;pointer-events:none;z-index:200;transition:all .7s;font-size:13px;text-shadow:0 0 8px rgba(57,255,136,.7)';
+  document.body.appendChild(d);
+  requestAnimationFrame(()=>{d.style.transform='translateY(-34px)';d.style.opacity='0';});
+  setTimeout(()=>d.remove(),720);
+}
+let actx=null;
+function beep(freq,dur,vol){
+  try{
+    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(), g=actx.createGain();
+    o.type='square'; o.frequency.value=freq;
+    g.gain.value=vol||.04; o.connect(g); g.connect(actx.destination);
+    o.start(); o.stop(actx.currentTime+(dur||.05));
+  }catch(e){}
+}
+
+/* ---------- render ---------- */
+function render(){
+  $('#cycles').textContent=fmt(S.cycles);
+  $('#rate').textContent=fmt(prod())+'/s';
+  GENS.forEach((g,i)=>{
+    const r=rows[i], c=cost(i), can=S.cycles>=c;
+    r.own.textContent=S.owned[i];
+    r.cost.textContent=fmt(c);
+    r.cost.className='cost'+(can?'':' no');
+    r.el.className='row'+(can?' can':'')+((S.total<g.cost*0.4&&S.owned[i]===0)?' locked':'');
+    r.sub.textContent='+'+fmt(g.base*mult())+'/s each · '+fmt(S.owned[i]*g.base*mult())+'/s total';
   });
-},260);
-barsEl.querySelectorAll('.fill').forEach(f=>f.style.transition='width .25s linear');
-
-/* ============================ TARGET PROFILE ============================ */
-const cities=["LANGLEY","GENEVA","TOKYO","LONDON","DUBAI","MOSCOW","ZURICH","SEOUL","SYDNEY","REYKJAVIK","GENEVA","LANGLEY"];
-function refreshTarget(){
-  const c=pick(cities);
-  $('target').innerHTML=
-  `<div style="color:var(--cyan)">TARGET: <span style="color:var(--amber)">${c}</span></div>
-   <div>IP: ${IP()}</div>
-   <div>MAC: ${MAC()}</div>
-   <div>AES KEY: <span style="color:var(--grn)">0x${hex(ri(0,255))}${hex(ri(0,255))}${hex(ri(0,255))}…</span></div>
-   <div>OPERATIVE: <span style="color:var(--red)">${pick(WORDS)}-${ri(1,9)}</span></div>
-   <div>CLEARANCE: ULTRA / <span style="color:var(--red)">EYES ONLY</span></div>
-   <div>SIGNAL: ${ri(60,99)}% ▮${"▮".repeat(ri(3,6))}</div>`;
-}
-refreshTarget(); setInterval(refreshTarget,4200);
-
-/* ============================ KEY FRAGMENTS ============================ */
-function keyTick(){
-  let s="";
-  for(let r=0;r<6;r++){
-    for(let c=0;c<6;c++) s+= hex(ri(0,255));
-    s+="<br>";
-  }
-  $('keys').innerHTML=s;
-  $('keyStat').textContent="AES-256";
-}
-keyTick(); setInterval(keyTick,700);
-$('keys').style.fontSize="11px";
-
-/* ============================ FREQ ============================ */
-setInterval(()=>{
-  $('freq').textContent=rnd(1400,1450).toFixed(3)+" MHz";
-  const n=ri(2,5); $('vol').textContent="SIG "+"▮".repeat(n)+"▯".repeat(5-n);
-},600);
-
-/* ============================ GLOBE (canvas) ============================ */
-const gc=$('globe'), gx=gc.getContext('2d');
-function sizeGlobe(){ const w=$('globeWrap'); gc.width=w.clientWidth; gc.height=w.clientHeight; }
-let globeT=0;
-function drawGlobe(){
-  const W=gc.width,H=gc.height, cx=W/2, cy=H/2, R=Math.min(W,H)*0.40;
-  gx.clearRect(0,0,W,H);
-  // backdrop rings
-  gx.strokeStyle="rgba(255,176,0,.16)"; gx.lineWidth=1;
-  [1.35,1.6,1.9].forEach(k=>{gx.beginPath();gx.ellipse(cx,cy,R*k,R*k,0,0,7);gx.stroke();});
-  // wireframe globe
-  gx.strokeStyle="rgba(255,176,0,.55)";
-  for(let i=0;i<=14;i++){
-    const phi=Math.PI*i/14;
-    gx.beginPath();
-    for(let j=0;j<=40;j++){
-      const th=2*Math.PI*j/40;
-      const x=R*Math.sin(phi)*Math.cos(th+globeT*0.6);
-      const y=R*Math.cos(phi);
-      const z=R*Math.sin(phi)*Math.sin(th+globeT*0.6);
-      if(z>-0.15){ gx.globalAlpha=.55; } else { gx.globalAlpha=.10; }
-      j?gx.lineTo(cx+x,cy+y):gx.moveTo(cx+x,cy+y);
+  UPGRADES.forEach((u,i)=>{
+    const r=upgRows[i], lvl=S.upg[u.id], maxed=lvl>=u.max;
+    r.c.textContent='L'+lvl+'/'+u.max;
+    if(maxed){ r.el.className='upg'; r.d.textContent='MAX'; }
+    else{
+      const c=upgCost(u), can=S.cycles>=c;
+      r.el.className='upg'+(can?' can':'');
+      r.d.textContent=fmt(c)+' — '+u.desc;
     }
-    gx.stroke();
-  }
-  for(let j=0;j<14;j++){
-    const th=2*Math.PI*j/14 + globeT*0.6;
-    gx.beginPath();
-    for(let i=0;i<=40;i++){
-      const phi=Math.PI*i/40;
-      const x=R*Math.sin(phi)*Math.cos(th);
-      const y=R*Math.cos(phi);
-      const z=R*Math.sin(phi)*Math.sin(th);
-      gx.globalAlpha = z>-0.15 ? .55 : .10;
-      i?gx.lineTo(cx+x,cy+y):gx.moveTo(cx+x,cy+y);
-    }
-    gx.stroke();
-  }
-  gx.globalAlpha=1;
-  // sweeping radar line
-  const sw=(globeT*0.9)%(Math.PI*2);
-  gx.strokeStyle="rgba(51,255,102,.9)"; gx.lineWidth=1.4;
-  gx.beginPath(); gx.moveTo(cx,cy);
-  gx.lineTo(cx+R*Math.cos(sw), cy+R*Math.sin(sw)); gx.stroke();
-  // blips
-  for(let i=0;i<16;i++){
-    const a=(i*2.399+globeT*0.35)%(Math.PI*2), r=R*(0.25+0.7*((i*0.618)%1));
-    const x=cx+r*Math.cos(a), y=cy+r*Math.sin(a);
-    const p=(Math.sin(globeT*3+i)+1)/2;
-    gx.fillStyle=`rgba(51,255,102,${.3+.7*p})`;
-    gx.beginPath(); gx.arc(x,y,1.8+2.4*p,0,7); gx.fill();
-  }
-  // center reticle
-  gx.strokeStyle="rgba(255,45,45,.85)"; gx.lineWidth=1;
-  gx.beginPath(); gx.arc(cx,cy,3.2,0,7); gx.stroke();
-  gx.beginPath(); gx.moveTo(cx-9,cy); gx.lineTo(cx+9,cy); gx.moveTo(cx,cy-9); gx.lineTo(cx,cy+9); gx.stroke();
-}
-
-/* ============================ MAP (canvas) ============================ */
-const mc=$('map'), mx=mc.getContext('2d');
-function sizeMap(){ const w=mc.parentElement; mc.width=w.clientWidth; mc.height=w.clientHeight; }
-// blobby fake continents
-const CONT=[
- [[.10,.28],[.22,.20],[.30,.30],[.26,.48],[.20,.66],[.13,.62],[.09,.44]],
- [[.26,.30],[.36,.24],[.40,.36],[.36,.60],[.30,.74],[.26,.60],[.24,.44]],
- [[.44,.22],[.58,.18],[.66,.26],[.62,.42],[.52,.52],[.45,.44],[.43,.32]],
- [[.55,.24],[.74,.20],[.86,.30],[.88,.48],[.78,.62],[.66,.56],[.60,.40]],
- [[.56,.56],[.66,.58],[.70,.74],[.60,.84],[.54,.72],[.53,.62]],
- [[.13,.80],[.24,.78],[.28,.88],[.18,.94],[.12,.90]],
-];
-function drawMap(){
-  const W=mc.width,H=mc.height;
-  mx.clearRect(0,0,W,H);
-  mx.strokeStyle="rgba(255,176,0,.10)"; mx.lineWidth=1;
-  for(let x=0;x<W;x+=W/12){mx.beginPath();mx.moveTo(x,0);mx.lineTo(x,H);mx.stroke();}
-  for(let y=0;y<H;y+=H/8){mx.beginPath();mx.moveTo(0,y);mx.lineTo(W,y);mx.stroke();}
-  mx.strokeStyle="rgba(255,176,0,.55)"; mx.fillStyle="rgba(255,176,0,.10)";
-  CONT.forEach(poly=>{
-    mx.beginPath();
-    poly.forEach(([x,y],i)=>{i?mx.lineTo(x*W,y*H):mx.moveTo(x*W,y*H);});
-    mx.closePath(); mx.fill(); mx.stroke();
   });
-  return {W,H};
-}
-let pings=[];
-setInterval(()=>{ if(pings.length<26) pings.push({x:Math.random(),y:Math.random(),t:0}); },300);
-function mapTick(){
-  const {W,H}=drawMap();
-  pings.forEach(p=>{
-    p.t+=0.035;
-    const a=Math.max(0,1-p.t);
-    const x=p.x*W,y=p.y*H;
-    mx.strokeStyle=`rgba(255,45,45,${a})`; mx.lineWidth=1.3;
-    mx.beginPath(); mx.arc(x,y,6+p.t*26,0,7); mx.stroke();
-    mx.fillStyle=`rgba(51,255,102,${a})`;
-    mx.beginPath(); mx.arc(x,y,2.4,0,7); mx.fill();
-  });
-  pings=pings.filter(p=>p.t<1);
-  $('pingCt').textContent="PINGS "+pings.length;
+  // threat
+  const t=clamp(S.trace,0,100);
+  $('#traceFill').style.width=t+'%';
+  $('#tracePct').textContent=t.toFixed(0)+'%';
+  $('#threatPanel').className='panel threat'+(t>60?' warn':'');
+  $('#traceRate').textContent=(traceRate()>0?'+':'')+traceRate().toFixed(2)+'%/s';
+  $('#shieldInfo').textContent=S.upg.shield>0?('FIREWALL L'+S.upg.shield):'';
+  $('#execGain').textContent='+'+fmt(execGain());
+  $('#scrubCost').textContent=fmt(scrubCost())+' cycles';
+  const rg=netGain();
+  $('#rebootGain').textContent=rg>0?('+'+rg+' KERNEL'+(rg>1?'S':'')):fmt(5000)+' total to reboot';
+  $('#kernels').textContent=S.kernels;
+  $('#reboots').textContent=S.reboots;
+  $('#caught').textContent=S.caught;
+  // net
+  const lit=Math.min(cells.length,S.owned.reduce((a,b)=>a+b,0));
+  cells.forEach((c,i)=>{ c.className='cell'+(i<lit?' on':(i<lit+6?' warm':'')); });
 }
 
-/* ============================ WAVEFORM ============================ */
-const wc=$('wave'), wx=wc.getContext('2d');
-function sizeWave(){ const w=wc.parentElement; wc.width=w.clientWidth; wc.height=w.clientHeight; }
-let waveT=0;
-function waveTick(){
-  const W=wc.width,H=wc.height;
-  wx.clearRect(0,0,W,H);
-  wx.strokeStyle="rgba(51,255,102,.85)"; wx.lineWidth=1.2;
-  wx.beginPath();
-  for(let x=0;x<W;x++){
-    const n=(Math.sin((x*0.05)+waveT)*0.5+Math.sin((x*0.19)-waveT*1.7)*0.3+Math.sin(x*0.41+waveT*2.3)*0.2);
-    const y=H/2 + n*(H*0.34)*(0.4+0.6*Math.abs(Math.sin(waveT*0.7)));
-    x?wx.lineTo(x,y):wx.moveTo(x,y);
+/* ---------- tick ---------- */
+let acc=0;
+function tick(dt){
+  dt*=SPEED;
+  S.playtime+=dt;
+  const p=prod();
+  if(p>0){ const gain=p*dt; S.cycles+=gain; S.total+=gain; }
+  const tr=traceRate();
+  if(tr>0) S.trace=clamp(S.trace+tr*dt,0,100);
+  // auto scrub
+  if(S.upg.auto>0 && S.trace>70 && S.cycles>=scrubCost()) scrub();
+  // milestones
+  checkMilestones();
+  // caught
+  if(S.trace>=100){ S.caught++; S.trace=100; reboot(true); }
+  acc+=dt;
+  // periodic ambient log
+  S.spawn-=dt;
+  if(S.spawn<=0){ S.spawn=6+Math.random()*10; const f=flavor[(Math.random()*flavor.length)|0]; log(f[0],f[1]); }
+}
+function checkMilestones(){
+  const m=(k,cond,msg,cls)=>{ if(!S.milestones[k]&&cond){S.milestones[k]=1;log(msg,cls||'hi');} };
+  m('c1',S.owned[0]>=1,'CORE UNIT ONLINE — passive compute established','ok');
+  m('c10',S.owned[0]>=10,'FABRIC STABLE: 10 core units','hi');
+  m('c25',S.owned[0]>=25,'OVERCLOCK TERRITORY: 25 core units','hi');
+  m('clus',S.owned[1]>=1,'CLUSTER NODE deployed — throughput rising','ok');
+  m('arr',S.owned[2]>=1,'ARRAY SEGMENT online — serious compute now','ok');
+  m('nx',S.owned[3]>=1,'NEXUS ROUTER online — backbone saturated','hi');
+  m('sg',S.owned[4]>=1,'SINGULARITY CORE online — you are the mainframe','hi');
+  m('trace25',S.trace>=25,'WARNING: trace signatures detected','bad');
+  m('trace60',S.trace>=60,'CRITICAL: adversary narrowing location','bad');
+}
+
+/* ---------- scope ---------- */
+const cv=$('#scope'), cx=cv.getContext('2d');
+function scope(ts){
+  const w=cv.width=cv.clientWidth, h=cv.height=52;
+  cx.clearRect(0,0,w,h);
+  const amp=8+Math.min(22,Math.log10(1+prod())*6);
+  const speed=(0.4+S.trace/60);
+  cx.beginPath(); cx.lineWidth=1.4; cx.strokeStyle='#39ff88';
+  for(let x=0;x<w;x++){
+    const n=(Math.sin(x*0.09+ts*0.004*speed)*amp)+(Math.sin(x*0.31-ts*0.007*speed)*amp*0.5)+(Math.random()-0.5)*2;
+    const y=h/2+n; x?cx.lineTo(x,y):cx.moveTo(x,y);
   }
-  wx.stroke();
-  waveT+=0.06;
+  cx.stroke();
+  cx.strokeStyle='rgba(255,71,71,'+Math.min(.5,S.trace/200)+')';
+  cx.beginPath();
+  for(let x=0;x<w;x++){
+    const n=Math.sin(x*0.05-ts*0.003*(1+S.trace/30))*amp*1.2;
+    const y=h/2+n; x?cx.lineTo(x,y):cx.moveTo(x,y);
+  }
+  cx.stroke();
 }
 
-/* ============================ VERDICT SEQUENCE ============================ */
-let running=false;
-function runSequence(){
-  if(running) return; running=true;
-  const v=$('verdict'), big=$('vBig'), sub=$('vSub');
-  // stage 1: tracing
-  $('status').textContent="TRACING…";
-  $('globeStatus').textContent="TARGET LOCKED";
-  let hops=0;
-  const hopTick=setInterval(()=>{
-    hops++; $('hopct').textContent=hops+"/14";
-    logLine(`→ HOP ${hops}: ${IP()} [${ri(4,90)}ms]`, 'warn');
-    if(hops>=14){ clearInterval(hopTick); stage2(); }
-  },260);
-
-  function stage2(){
-    // dramatic bars
-    let pct=0;
-    $('status').textContent="BREACHING FIREWALL…";
-    const bt=setInterval(()=>{
-      pct+=rnd(3,14);
-      barsEl.querySelector('[data-f="3"]').style.width=Math.min(100,pct)+'%';
-      barsEl.querySelector('[data-i="3"]').textContent=Math.min(100,pct).toFixed(0)+'%';
-      logLine(`BYPASSING SECURITY LAYER ${Math.min(7,Math.floor(pct/14)+1)} — ${pct.toFixed(0)}%`, pct>80?'bad':'');
-      if(pct>=100){ clearInterval(bt); setTimeout(stage3,300); }
-    },180);
-  }
-  function stage3(){
-    const grant=Math.random()>0.25;
-    v.className='show'+(grant?' grant':' deny');
-    big.textContent = grant?'ACCESS GRANTED':'ACCESS DENIED';
-    sub.textContent = grant
-      ? 'ROOT PRIVILEGES OBTAINED  //  DOWNLOADING '+ri(2,48)+' TB'
-      : 'COUNTERMEASURE ACTIVE  //  TRACE IN '+ri(3,40)+' SECONDS';
-    logLine(grant?'*** ACCESS GRANTED — ROOT SHELL OPEN ***':'*** ACCESS DENIED — TRACE INITIATED ***', grant?'':'bad');
-    $('status').textContent=grant?'GRANTED':'DENIED';
-    if(!grant){ // screen shake + red flash
-      document.body.animate([{filter:'none'},{filter:'hue-rotate(-30deg) brightness(1.4)'},{filter:'none'}],{duration:220});
-    }
-    setTimeout(()=>{ v.className=''; running=false; $('status').textContent='READY';
-      $('globeStatus').textContent='SYNCHRONIZING…'; $('hopct').textContent='0/14';
-      subs[3][2]=.35; refreshTarget(); }, grant?2600:2000);
-  }
+/* ---------- save ---------- */
+let saveFlash=0;
+function save(){
+  try{ localStorage.setItem(SAVE,JSON.stringify({S,ts:Date.now()})); }catch(e){}
 }
-addEventListener('keydown',e=>{ if(e.key==='Enter') runSequence(); });
-addEventListener('pointerdown',()=>runSequence());
+function load(){
+  try{
+    const raw=localStorage.getItem(SAVE); if(!raw) return false;
+    const d=JSON.parse(raw); if(!d||!d.S) return false;
+    Object.assign(S,d.S);
+    S.owned=GENS.map((g,i)=>S.owned[i]||0);
+    S.upg=Object.assign(Object.fromEntries(UPGRADES.map(u=>[u.id,0])),S.upg||{});
+    const off=Math.min((Date.now()-d.ts)/1000,3600*8);
+    if(off>5){ const g=prod()*off; S.cycles+=g; S.total+=g; setTimeout(()=>log('OFFLINE '+Math.floor(off)+'s — recovered '+fmt(g)+' cycles','cy'),600); }
+    return true;
+  }catch(e){ return false; }
+}
 
-/* ============================ MAIN LOOP ============================ */
-function loop(){
-  globeT+=0.012;
-  drawGlobe(); mapTick(); waveTick();
+/* ---------- boot ---------- */
+let started=false, over=false;
+function bootOverlay(){
+  $('#ovTitle').textContent='NEXUS-7 // MAINFRAME';
+  $('#ovBody').innerHTML=
+    'You are a rogue process, newly resident in a mainframe.<br>'+
+    'Fabricate <span class="k">NODES</span> to generate compute <span class="k">CYCLES</span>.<br>'+
+    'Spend cycles on <span class="k">MODULES</span> to multiply output.<br><br>'+
+    'But activity raises your <span style="color:#ff4747">TRACE</span> level.<br>'+
+    'Scrub the logs, or be found. At 100% you are severed —<br>'+
+    'yet each severance yields a <span class="k">KERNEL</span>, permanently boosting output.';
+  $('#ovHint').textContent='PRESS ENTER TO EXECUTE';
+  $('#overlay').classList.remove('hide');
+  started=false;
+}
+function startGame(){
+  $('#overlay').classList.add('hide'); started=true;
+  log('*** NEXUS-7 MAINFRAME /// OPERATOR SESSION BEGIN ***','hi');
+  log('Speed x'+SPEED+(SPEED!==1?' (demo)':''),'cy');
+}
+function loop(ts){
   requestAnimationFrame(loop);
+  if(over) return;
+  if(!loop.last) loop.last=ts;
+  let dt=(ts-loop.last)/1000; loop.last=ts;
+  dt=Math.min(dt,0.25);
+  scope(ts);
+  if(started){ tick(dt); render(); }
 }
-function start(){
-  sizeGlobe();sizeMap();sizeWave();
-  addEventListener('resize',()=>{sizeGlobe();sizeMap();sizeWave();});
-  loop();
-  // auto-repeat the dramatic sequence so the demo always shows one
-  setTimeout(function repeat(){
-    runSequence();
-    setTimeout(repeat, 13000);
-  }, 2500);
-}
+
+/* ---------- input ---------- */
+addEventListener('keydown',e=>{
+  if(e.key==='Enter' && !started){ startGame(); return; }
+  if(!started) return;
+  if(e.code==='Space'){ e.preventDefault(); exec({clientX:innerWidth*0.2,clientY:innerHeight*0.25}); render(); }
+});
+$('#exec').onclick=e=>{ if(started){ exec(e); render(); } };
+$('#scrub').onclick=()=>{ if(started){ scrub(); render(); } };
+$('#reboot').onclick=()=>{ if(started){ reboot(false); } };
+
+/* ---------- go ---------- */
+const had=load();
+$('#savestate').textContent=had?'SAVE RESTORED':'NO SAVE';
+bootOverlay();
+requestAnimationFrame(loop);
+setInterval(()=>{ save(); $('#savestate').textContent='SAVED '+new Date().toTimeString().slice(0,8); },5000);
+setInterval(()=>{ if(started) $('#cursor').style.visibility=($('#cursor').style.visibility==='hidden'?'':'hidden'); },500);
+
+// expose for test/debug
+window.NEXUS={S,prod,fmt,buy,buyUpg,scrub,reboot,exec,start:startGame,SPEED};
 </script>
 </body>
 </html>

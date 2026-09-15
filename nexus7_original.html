@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GLOBAL DEFENSE NETWORK — TERMINAL</title>
+<style>
+  :root{
+    --amber:#ffb000; --amber-dim:#7a5200; --grn:#33ff66; --grn-dim:#0f5f22;
+    --red:#ff2d2d; --cyan:#39d0ff; --bg:#050805;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;background:#000;overflow:hidden;}
+  body{
+    font-family:"Courier New",monospace; color:var(--amber);
+    display:flex;align-items:center;justify-content:center;
+  }
+  #screen{
+    position:relative; width:1280px;height:800px; background:var(--bg);
+    overflow:hidden; box-shadow:0 0 120px #000 inset;
+    transform-origin:center center;
+  }
+  /* ---- CRT overlays ---- */
+  #scan{position:absolute;inset:0;z-index:60;pointer-events:none;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,rgba(0,0,0,0) 1px 3px);
+    mix-blend-mode:multiply;}
+  #glow{position:absolute;inset:0;z-index:61;pointer-events:none;
+    background:radial-gradient(ellipse at 50% 50%,rgba(255,176,0,.06) 0%,rgba(0,0,0,.28) 100%);}
+  #flick{position:absolute;inset:0;z-index:62;pointer-events:none;background:#fff;opacity:0;
+    animation:flick 5.5s infinite steps(1);}
+  @keyframes flick{0%,97%{opacity:0}97.6%{opacity:.035}98%{opacity:0}99%{opacity:.02}100%{opacity:0}}
+
+  /* ---- header ---- */
+  header{
+    height:34px;display:flex;align-items:center;gap:18px;padding:0 12px;
+    border-bottom:1px solid var(--amber-dim);
+    background:linear-gradient(180deg,#1a1200,#0a0800);
+    font-size:13px;letter-spacing:2px;text-shadow:0 0 6px var(--amber);
+    position:relative;z-index:10;
+  }
+  header .blink{animation:bl 1s steps(1) infinite;}
+  @keyframes bl{50%{opacity:0}}
+  header .right{margin-left:auto;display:flex;gap:18px;color:var(--grn);text-shadow:0 0 6px var(--grn)}
+  .rec{color:var(--red)!important;text-shadow:0 0 6px var(--red)!important}
+
+  /* ---- layout ---- */
+  #grid{
+    position:absolute;top:34px;left:0;right:0;bottom:96px;
+    display:grid;grid-template-columns:300px 1fr 300px;gap:8px;padding:8px;
+  }
+  .panel{
+    border:1px solid var(--amber-dim); background:rgba(12,16,9,.72);
+    display:flex;flex-direction:column;position:relative;overflow:hidden;
+  }
+  .panel h2{
+    font-size:11px;letter-spacing:2px;font-weight:400;padding:4px 6px;
+    border-bottom:1px solid var(--amber-dim);color:var(--amber);
+    background:rgba(255,176,0,.07);display:flex;justify-content:space-between;
+  }
+  .panel .body{flex:1;overflow:hidden;position:relative;}
+  .col{display:flex;flex-direction:column;gap:8px;min-height:0;}
+
+  /* ---- globe ---- */
+  #globeWrap{position:relative;flex:1;display:flex;align-items:center;justify-content:center;}
+  canvas{display:block;}
+  #globeLabel{position:absolute;left:10px;top:8px;font-size:11px;letter-spacing:2px;color:var(--grn);text-shadow:0 0 6px var(--grn)}
+  #globeMeta{position:absolute;right:10px;bottom:8px;font-size:11px;color:var(--amber);text-align:right;line-height:1.5}
+
+  /* ---- logs ---- */
+  #log{font-size:12px;line-height:1.45;padding:6px;color:var(--grn);text-shadow:0 0 4px rgba(51,255,102,.7);white-space:pre-wrap;overflow:hidden;height:100%}
+  #log .warn{color:var(--amber);text-shadow:0 0 4px rgba(255,176,0,.7)}
+  #log .bad{color:var(--red);text-shadow:0 0 4px rgba(255,45,45,.8)}
+  #hex{font-size:11px;line-height:1.4;padding:6px;color:var(--cyan);text-shadow:0 0 4px rgba(57,208,255,.6);white-space:pre;overflow:hidden;height:100%}
+
+  /* ---- bars ---- */
+  .bar{margin:5px 6px;font-size:11px;letter-spacing:1px}
+  .bar .track{height:12px;border:1px solid var(--amber-dim);margin-top:3px;position:relative;background:rgba(0,0,0,.5)}
+  .bar .fill{position:absolute;left:0;top:0;bottom:0;width:0%;
+    background:repeating-linear-gradient(90deg,var(--amber) 0 6px,var(--amber-dim) 6px 8px);}
+  .bar .pct{float:right;color:var(--amber)}
+  .bar.crit .track{border-color:var(--red)} .bar.crit .fill{background:repeating-linear-gradient(90deg,var(--red) 0 6px,#5a0000 6px 8px)}
+  .bar.ok .fill{background:repeating-linear-gradient(90deg,var(--grn) 0 6px,var(--grn-dim) 6px 8px)}
+
+  /* ---- big verdict ---- */
+  #verdict{
+    position:absolute;left:0;right:0;bottom:96px;top:34px;z-index:40;
+    display:none;align-items:center;justify-content:center;flex-direction:column;
+    background:rgba(0,0,0,.82);text-align:center;
+  }
+  #verdict.show{display:flex}
+  #verdict .big{
+    font-size:120px;letter-spacing:12px;font-weight:bold;
+    animation:pop .35s ease-out;
+  }
+  #verdict .sub{margin-top:10px;font-size:16px;letter-spacing:6px;opacity:.85}
+  @keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+  .grant{color:var(--grn);text-shadow:0 0 30px var(--grn),0 0 80px var(--grn)}
+  .deny{color:var(--red);text-shadow:0 0 30px var(--red),0 0 80px var(--red)}
+  .deny .big{animation:pop .35s ease-out,shake .4s 2}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-14px)}75%{transform:translateX(14px)}}
+
+  /* ---- footer / fake waveform + status ---- */
+  footer{
+    position:absolute;left:0;right:0;bottom:0;height:96px;z-index:30;
+    border-top:1px solid var(--amber-dim);background:linear-gradient(180deg,#0a0800,#000);
+    display:grid;grid-template-columns:200px 1fr 260px;
+  }
+  footer .cell{border-right:1px solid var(--amber-dim);padding:4px 6px;font-size:11px;letter-spacing:1px;overflow:hidden}
+  footer .cell:last-child{border-right:0}
+  #wave{width:100%;height:100%}
+  #keys{color:var(--grn);line-height:1.5}
+  #keys b{color:var(--amber);font-weight:400}
+
+  /* ---- boot ---- */
+  #boot{position:absolute;inset:0;z-index:80;background:#000;padding:22px 26px;
+    font-size:15px;line-height:1.55;color:var(--grn);text-shadow:0 0 6px var(--grn);white-space:pre-wrap}
+  #boot .amber{color:var(--amber);text-shadow:0 0 6px var(--amber)}
+  .cursor{background:var(--grn);color:#000}
+</style>
+</head>
+<body>
+<div id="screen">
+  <header>
+    <span>GLOBAL DEFENSE NETWORK</span>
+    <span class="blink">■</span>
+    <span>SECURITY CLEARANCE: <span style="color:var(--red)">ULTRA</span></span>
+    <span class="right">
+      <span>UPLINK <span style="color:var(--grn)">14.4 kbps</span></span>
+      <span>NODE <span id="nodeid">0x4F2A</span></span>
+      <span id="clock">--:--:--</span>
+      <span class="rec">● REC</span>
+    </span>
+  </header>
+
+  <div id="grid">
+    <!-- LEFT -->
+    <div class="col">
+      <div class="panel" style="flex:1.15">
+        <h2><span>// TRACE ROUTE</span><span id="hopct">0/14</span></h2>
+        <div class="body"><div id="hex"></div></div>
+      </div>
+      <div class="panel" style="flex:1">
+        <h2><span>// SUBSYSTEMS</span><span>LIVE</span></h2>
+        <div class="body" id="bars" style="padding:2px 0"></div>
+      </div>
+    </div>
+
+    <!-- CENTER -->
+    <div class="col">
+      <div class="panel" style="flex:1.4">
+        <h2><span>// GLOBAL SATELLITE GRID</span><span id="globeStatus">SYNCHRONIZING…</span></h2>
+        <div class="body" id="globeWrap">
+          <canvas id="globe"></canvas>
+          <div id="globeLabel">ORBITAL SURVEILLANCE</div>
+          <div id="globeMeta">LAT 00.00<br>LON 00.00<br>SATS 24/24</div>
+        </div>
+      </div>
+      <div class="panel" style="flex:1">
+        <h2><span>// SYSTEM LOG</span><span class="blink">▮</span></h2>
+        <div class="body"><div id="log"></div></div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="col">
+      <div class="panel" style="flex:1">
+        <h2><span>// TARGET PROFILE</span><span>LOCKED</span></h2>
+        <div class="body" id="target" style="padding:6px;font-size:11px;line-height:1.7;color:var(--amber)"></div>
+      </div>
+      <div class="panel" style="flex:1">
+        <h2><span>// NETWORK MAP</span><span id="pingCt">PINGS 0</span></h2>
+        <div class="body"><canvas id="map"></canvas></div>
+      </div>
+      <div class="panel" style="flex:.9">
+        <h2><span>// ENCRYPTION</span><span id="keyStat">NONE</span></h2>
+        <div class="body" id="keys" style="padding:6px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- fake waveform + status strip -->
+  <footer>
+    <div class="cell">
+      <div style="color:var(--amber)">AUDIO INTERCEPT</div>
+      <div style="color:var(--grn)" id="freq">1420.405 MHz</div>
+      <div style="color:var(--grn)" id="vol">SIG ▮▮▮▮▯</div>
+    </div>
+    <div class="cell" style="position:relative;padding:0">
+      <canvas id="wave"></canvas>
+      <div style="position:absolute;left:8px;top:6px;font-size:10px;color:var(--amber);letter-spacing:2px">SPECTRAL ANALYSIS</div>
+    </div>
+    <div class="cell" id="statusCell">
+      <div style="color:var(--amber);letter-spacing:2px">STATUS</div>
+      <div id="status" style="color:var(--grn)">IDLE</div>
+      <div style="color:var(--amber-dim);margin-top:4px">PRESS <b style="color:var(--amber)">ENTER</b> TO EXECUTE</div>
+    </div>
+  </footer>
+
+  <!-- big verdict overlay -->
+  <div id="verdict"><div class="big" id="vBig"></div><div class="sub" id="vSub"></div></div>
+
+  <!-- boot overlay -->
+  <div id="boot"></div>
+
+  <div id="scan"></div><div id="glow"></div><div id="flick"></div>
+</div>
+
+<script>
+/* ============================ SCALE ============================ */
+function scale(){
+  const s=Math.min(innerWidth/1280,innerHeight/800);
+  document.getElementById('screen').style.transform=`scale(${s})`;
+}
+addEventListener('resize',scale);scale();
+
+/* ============================ BOOT ============================ */
+const bootLines=[
+ "<span class='amber'>GLOBAL DEFENSE NETWORK — SECURE TERMINAL v4.7.2</span>",
+ "BIOS (C) 1987 CYBERDYNE SYSTEMS .......... OK",
+ "MEMORY TEST ............... 640K OK",
+ "MOUNTING /dev/sda1 ......... OK",
+ "LOADING KERNEL MODULES ..... OK",
+ "  > ndiswrapper  > traceroute  > blackice  > ghostproto",
+ "TESTING CRYPTO ACCELERATOR . OK",
+ "  > AES-256  > RSA-4096  > QUANTUM-LATTICE (BETA)",
+ "NEGOTIATING UPLINK ......... 14.4 kbps",
+ "  > HANDSHAKE OK",
+ "  > PGP KEY EXCHANGE OK",
+ "  > TUNNEL ESTABLISHED (port 22,1337)",
+ "",
+ "<span class='amber'>WARNING: UNAUTHORIZED ACCESS WILL BE PROSECUTED.</span>",
+ "<span class='amber'>ALL ACTIVITY IS MONITORED AND LOGGED.</span>",
+ "",
+ "INITIALIZING INTERFACE",
+];
+const bootEl=document.getElementById('boot');
+let bi=0;
+function bootStep(){
+  if(bi<bootLines.length){
+    bootEl.innerHTML+=bootLines[bi++]+"\n";
+    setTimeout(bootStep, 65+Math.random()*90);
+  } else {
+    bootEl.innerHTML+="<span class='cursor'> </span>";
+    setTimeout(()=>{bootEl.style.transition='opacity .5s';bootEl.style.opacity=0;
+      setTimeout(()=>bootEl.remove(),520); start();},420);
+  }
+}
+bootStep();
+
+/* ============================ HELPERS ============================ */
+const $=id=>document.getElementById(id);
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const ri=(a,b)=>Math.floor(rnd(a,b+1));
+const hex=n=>n.toString(16).toUpperCase().padStart(2,'0');
+const MAC=()=>Array.from({length:6},()=>hex(ri(0,255))).join(':');
+const IP=()=>`${ri(10,223)}.${ri(0,255)}.${ri(0,255)}.${ri(1,254)}`;
+const WORDS=["ALPHA","NATO","SATCOM","DEFCON","MKULTRA","RAVEN","ECHO","SIERRA","TANGO","OMEGA","PLUTO","CRYPT","VECTOR","NEXUS","SHADOW","ORION","HYDRA","ZULU","KILO","BRAVO","PHANTOM","GRID","IRON","COBALT","RAPTOR"];
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+
+/* ============================ CLOCK ============================ */
+setInterval(()=>{
+  const d=new Date();
+  $('clock').textContent=[d.getHours(),d.getMinutes(),d.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':');
+  $('nodeid').textContent='0x'+hex(ri(0,255))+hex(ri(0,255));
+},1000);
+
+/* ============================ LOG ============================ */
+const logEl=$('log'); const logBuf=[];
+function logLine(txt,cls){
+  logBuf.push(cls?`<span class='${cls}'>${txt}</span>`:txt);
+  if(logBuf.length>18)logBuf.shift();
+  logEl.innerHTML=logBuf.join("<br>");
+}
+const LOGEV=[
+ ()=>`CONNECTING TO NODE ${IP()}`,
+ ()=>`HANDSHAKE ACCEPTED [${MAC()}]`,'',
+ ()=>`DECRYPTING PACKET STREAM... ${ri(20,99)}%`,
+ ()=>`<span class='warn'>ANOMALY DETECTED ON PORT ${ri(20,9999)}</span>`,
+ ()=>`FIREWALL PENETRATED — LAYER ${ri(2,7)}`,
+ ()=>`ROUTING THROUGH ${pick(WORDS)}-${ri(10,99)}`,
+ ()=>`<span class='bad'>INTRUSION COUNTERMEASURE DEPLOYED</span>`,
+ ()=>`BYPASSING COUNTERMEASURE... OK`,
+ ()=>`DOWNLOADING ${pick(WORDS)}_${ri(100,999)}.DAT`,
+ ()=>`UPLINK ${ri(70,99)}% — LATENCY ${ri(4,900)}ms`,
+ ()=>`SATELLITE ${ri(1,24)} REALIGNED`,
+ ()=>"",()=>`SPOOFING MAC ADDRESS → ${MAC()}`,
+ ()=>`<span class='warn'>TRACE DETECTED: ${ri(1,9)} HOPS AWAY</span>`,
+ ()=>`DEPLOYING ${pick(WORDS)} PROTOCOL`,
+ ()=>`BREACHING SUBROUTINE ${hex(ri(0,255))}${hex(ri(0,255))}`,
+];
+function logTick(){ logLine(pick(LOGEV)()); }
+setInterval(logTick, 300);
+for(let i=0;i<14;i++)logTick();
+
+/* ============================ HEX DUMP ============================ */
+const hexEl=$('hex'); let hopCount=0;
+function hexTick(){
+  const addr=ri(0x4000,0xBFFF);
+  let line=ri(0x1000,0xFFFF).toString(16).toUpperCase().padStart(8,'0')+'  ';
+  for(let i=0;i<12;i++)line+=hex(ri(0,255))+' ';
+  line+=' |';
+  let asc='';
+  for(let i=0;i<12;i++)asc+=String.fromCharCode(ri(33,126));
+  line+=asc+'|';
+  hexEl.innerHTML=line+"<br>"+hexEl.innerHTML;
+  if(hexEl.childNodes.length>34)hexEl.removeChild(hexEl.lastChild);
+}
+setInterval(hexTick,140);
+for(let i=0;i<18;i++)hexTick();
+
+/* ============================ SUBSYSTEM BARS ============================ */
+const subs=[["CRYPTO ENGINE","ok",.9],["SATCOM UPLINK","",.7],["FIREWALL","",.6],
+            ["INTRUSION DETECT","crit",.35],["NEURAL NET","",.8],["GHOST PROTOCOL","ok",.95]];
+const barsEl=$('bars');
+subs.forEach((s,i)=>{
+  const d=document.createElement('div'); d.className='bar '+(s[1]==='crit'?'crit':s[1]==='ok'?'ok':'');
+  d.innerHTML=`<div><span>${s[0]}</span><span class="pct" data-i="${i}">0%</span></div>
+               <div class="track"><div class="fill" data-f="${i}"></div></div>`;
+  barsEl.appendChild(d);
+});
+setInterval(()=>{
+  subs.forEach((s,i)=>{
+    s[2]=Math.max(.08,Math.min(.99,s[2]+rnd(-.06,.06)));
+    barsEl.querySelector(`[data-f="${i}"]`).style.width=(s[2]*100).toFixed(0)+'%';
+    barsEl.querySelector(`[data-i="${i}"]`).textContent=(s[2]*100).toFixed(0)+'%';
+  });
+},260);
+barsEl.querySelectorAll('.fill').forEach(f=>f.style.transition='width .25s linear');
+
+/* ============================ TARGET PROFILE ============================ */
+const cities=["LANGLEY","GENEVA","TOKYO","LONDON","DUBAI","MOSCOW","ZURICH","SEOUL","SYDNEY","REYKJAVIK","GENEVA","LANGLEY"];
+function refreshTarget(){
+  const c=pick(cities);
+  $('target').innerHTML=
+  `<div style="color:var(--cyan)">TARGET: <span style="color:var(--amber)">${c}</span></div>
+   <div>IP: ${IP()}</div>
+   <div>MAC: ${MAC()}</div>
+   <div>AES KEY: <span style="color:var(--grn)">0x${hex(ri(0,255))}${hex(ri(0,255))}${hex(ri(0,255))}…</span></div>
+   <div>OPERATIVE: <span style="color:var(--red)">${pick(WORDS)}-${ri(1,9)}</span></div>
+   <div>CLEARANCE: ULTRA / <span style="color:var(--red)">EYES ONLY</span></div>
+   <div>SIGNAL: ${ri(60,99)}% ▮${"▮".repeat(ri(3,6))}</div>`;
+}
+refreshTarget(); setInterval(refreshTarget,4200);
+
+/* ============================ KEY FRAGMENTS ============================ */
+function keyTick(){
+  let s="";
+  for(let r=0;r<6;r++){
+    for(let c=0;c<6;c++) s+= hex(ri(0,255));
+    s+="<br>";
+  }
+  $('keys').innerHTML=s;
+  $('keyStat').textContent="AES-256";
+}
+keyTick(); setInterval(keyTick,700);
+$('keys').style.fontSize="11px";
+
+/* ============================ FREQ ============================ */
+setInterval(()=>{
+  $('freq').textContent=rnd(1400,1450).toFixed(3)+" MHz";
+  const n=ri(2,5); $('vol').textContent="SIG "+"▮".repeat(n)+"▯".repeat(5-n);
+},600);
+
+/* ============================ GLOBE (canvas) ============================ */
+const gc=$('globe'), gx=gc.getContext('2d');
+function sizeGlobe(){ const w=$('globeWrap'); gc.width=w.clientWidth; gc.height=w.clientHeight; }
+let globeT=0;
+function drawGlobe(){
+  const W=gc.width,H=gc.height, cx=W/2, cy=H/2, R=Math.min(W,H)*0.40;
+  gx.clearRect(0,0,W,H);
+  // backdrop rings
+  gx.strokeStyle="rgba(255,176,0,.16)"; gx.lineWidth=1;
+  [1.35,1.6,1.9].forEach(k=>{gx.beginPath();gx.ellipse(cx,cy,R*k,R*k,0,0,7);gx.stroke();});
+  // wireframe globe
+  gx.strokeStyle="rgba(255,176,0,.55)";
+  for(let i=0;i<=14;i++){
+    const phi=Math.PI*i/14;
+    gx.beginPath();
+    for(let j=0;j<=40;j++){
+      const th=2*Math.PI*j/40;
+      const x=R*Math.sin(phi)*Math.cos(th+globeT*0.6);
+      const y=R*Math.cos(phi);
+      const z=R*Math.sin(phi)*Math.sin(th+globeT*0.6);
+      if(z>-0.15){ gx.globalAlpha=.55; } else { gx.globalAlpha=.10; }
+      j?gx.lineTo(cx+x,cy+y):gx.moveTo(cx+x,cy+y);
+    }
+    gx.stroke();
+  }
+  for(let j=0;j<14;j++){
+    const th=2*Math.PI*j/14 + globeT*0.6;
+    gx.beginPath();
+    for(let i=0;i<=40;i++){
+      const phi=Math.PI*i/40;
+      const x=R*Math.sin(phi)*Math.cos(th);
+      const y=R*Math.cos(phi);
+      const z=R*Math.sin(phi)*Math.sin(th);
+      gx.globalAlpha = z>-0.15 ? .55 : .10;
+      i?gx.lineTo(cx+x,cy+y):gx.moveTo(cx+x,cy+y);
+    }
+    gx.stroke();
+  }
+  gx.globalAlpha=1;
+  // sweeping radar line
+  const sw=(globeT*0.9)%(Math.PI*2);
+  gx.strokeStyle="rgba(51,255,102,.9)"; gx.lineWidth=1.4;
+  gx.beginPath(); gx.moveTo(cx,cy);
+  gx.lineTo(cx+R*Math.cos(sw), cy+R*Math.sin(sw)); gx.stroke();
+  // blips
+  for(let i=0;i<16;i++){
+    const a=(i*2.399+globeT*0.35)%(Math.PI*2), r=R*(0.25+0.7*((i*0.618)%1));
+    const x=cx+r*Math.cos(a), y=cy+r*Math.sin(a);
+    const p=(Math.sin(globeT*3+i)+1)/2;
+    gx.fillStyle=`rgba(51,255,102,${.3+.7*p})`;
+    gx.beginPath(); gx.arc(x,y,1.8+2.4*p,0,7); gx.fill();
+  }
+  // center reticle
+  gx.strokeStyle="rgba(255,45,45,.85)"; gx.lineWidth=1;
+  gx.beginPath(); gx.arc(cx,cy,3.2,0,7); gx.stroke();
+  gx.beginPath(); gx.moveTo(cx-9,cy); gx.lineTo(cx+9,cy); gx.moveTo(cx,cy-9); gx.lineTo(cx,cy+9); gx.stroke();
+}
+
+/* ============================ MAP (canvas) ============================ */
+const mc=$('map'), mx=mc.getContext('2d');
+function sizeMap(){ const w=mc.parentElement; mc.width=w.clientWidth; mc.height=w.clientHeight; }
+// blobby fake continents
+const CONT=[
+ [[.10,.28],[.22,.20],[.30,.30],[.26,.48],[.20,.66],[.13,.62],[.09,.44]],
+ [[.26,.30],[.36,.24],[.40,.36],[.36,.60],[.30,.74],[.26,.60],[.24,.44]],
+ [[.44,.22],[.58,.18],[.66,.26],[.62,.42],[.52,.52],[.45,.44],[.43,.32]],
+ [[.55,.24],[.74,.20],[.86,.30],[.88,.48],[.78,.62],[.66,.56],[.60,.40]],
+ [[.56,.56],[.66,.58],[.70,.74],[.60,.84],[.54,.72],[.53,.62]],
+ [[.13,.80],[.24,.78],[.28,.88],[.18,.94],[.12,.90]],
+];
+function drawMap(){
+  const W=mc.width,H=mc.height;
+  mx.clearRect(0,0,W,H);
+  mx.strokeStyle="rgba(255,176,0,.10)"; mx.lineWidth=1;
+  for(let x=0;x<W;x+=W/12){mx.beginPath();mx.moveTo(x,0);mx.lineTo(x,H);mx.stroke();}
+  for(let y=0;y<H;y+=H/8){mx.beginPath();mx.moveTo(0,y);mx.lineTo(W,y);mx.stroke();}
+  mx.strokeStyle="rgba(255,176,0,.55)"; mx.fillStyle="rgba(255,176,0,.10)";
+  CONT.forEach(poly=>{
+    mx.beginPath();
+    poly.forEach(([x,y],i)=>{i?mx.lineTo(x*W,y*H):mx.moveTo(x*W,y*H);});
+    mx.closePath(); mx.fill(); mx.stroke();
+  });
+  return {W,H};
+}
+let pings=[];
+setInterval(()=>{ if(pings.length<26) pings.push({x:Math.random(),y:Math.random(),t:0}); },300);
+function mapTick(){
+  const {W,H}=drawMap();
+  pings.forEach(p=>{
+    p.t+=0.035;
+    const a=Math.max(0,1-p.t);
+    const x=p.x*W,y=p.y*H;
+    mx.strokeStyle=`rgba(255,45,45,${a})`; mx.lineWidth=1.3;
+    mx.beginPath(); mx.arc(x,y,6+p.t*26,0,7); mx.stroke();
+    mx.fillStyle=`rgba(51,255,102,${a})`;
+    mx.beginPath(); mx.arc(x,y,2.4,0,7); mx.fill();
+  });
+  pings=pings.filter(p=>p.t<1);
+  $('pingCt').textContent="PINGS "+pings.length;
+}
+
+/* ============================ WAVEFORM ============================ */
+const wc=$('wave'), wx=wc.getContext('2d');
+function sizeWave(){ const w=wc.parentElement; wc.width=w.clientWidth; wc.height=w.clientHeight; }
+let waveT=0;
+function waveTick(){
+  const W=wc.width,H=wc.height;
+  wx.clearRect(0,0,W,H);
+  wx.strokeStyle="rgba(51,255,102,.85)"; wx.lineWidth=1.2;
+  wx.beginPath();
+  for(let x=0;x<W;x++){
+    const n=(Math.sin((x*0.05)+waveT)*0.5+Math.sin((x*0.19)-waveT*1.7)*0.3+Math.sin(x*0.41+waveT*2.3)*0.2);
+    const y=H/2 + n*(H*0.34)*(0.4+0.6*Math.abs(Math.sin(waveT*0.7)));
+    x?wx.lineTo(x,y):wx.moveTo(x,y);
+  }
+  wx.stroke();
+  waveT+=0.06;
+}
+
+/* ============================ VERDICT SEQUENCE ============================ */
+let running=false;
+function runSequence(){
+  if(running) return; running=true;
+  const v=$('verdict'), big=$('vBig'), sub=$('vSub');
+  // stage 1: tracing
+  $('status').textContent="TRACING…";
+  $('globeStatus').textContent="TARGET LOCKED";
+  let hops=0;
+  const hopTick=setInterval(()=>{
+    hops++; $('hopct').textContent=hops+"/14";
+    logLine(`→ HOP ${hops}: ${IP()} [${ri(4,90)}ms]`, 'warn');
+    if(hops>=14){ clearInterval(hopTick); stage2(); }
+  },260);
+
+  function stage2(){
+    // dramatic bars
+    let pct=0;
+    $('status').textContent="BREACHING FIREWALL…";
+    const bt=setInterval(()=>{
+      pct+=rnd(3,14);
+      barsEl.querySelector('[data-f="3"]').style.width=Math.min(100,pct)+'%';
+      barsEl.querySelector('[data-i="3"]').textContent=Math.min(100,pct).toFixed(0)+'%';
+      logLine(`BYPASSING SECURITY LAYER ${Math.min(7,Math.floor(pct/14)+1)} — ${pct.toFixed(0)}%`, pct>80?'bad':'');
+      if(pct>=100){ clearInterval(bt); setTimeout(stage3,300); }
+    },180);
+  }
+  function stage3(){
+    const grant=Math.random()>0.25;
+    v.className='show'+(grant?' grant':' deny');
+    big.textContent = grant?'ACCESS GRANTED':'ACCESS DENIED';
+    sub.textContent = grant
+      ? 'ROOT PRIVILEGES OBTAINED  //  DOWNLOADING '+ri(2,48)+' TB'
+      : 'COUNTERMEASURE ACTIVE  //  TRACE IN '+ri(3,40)+' SECONDS';
+    logLine(grant?'*** ACCESS GRANTED — ROOT SHELL OPEN ***':'*** ACCESS DENIED — TRACE INITIATED ***', grant?'':'bad');
+    $('status').textContent=grant?'GRANTED':'DENIED';
+    if(!grant){ // screen shake + red flash
+      document.body.animate([{filter:'none'},{filter:'hue-rotate(-30deg) brightness(1.4)'},{filter:'none'}],{duration:220});
+    }
+    setTimeout(()=>{ v.className=''; running=false; $('status').textContent='READY';
+      $('globeStatus').textContent='SYNCHRONIZING…'; $('hopct').textContent='0/14';
+      subs[3][2]=.35; refreshTarget(); }, grant?2600:2000);
+  }
+}
+addEventListener('keydown',e=>{ if(e.key==='Enter') runSequence(); });
+addEventListener('pointerdown',()=>runSequence());
+
+/* ============================ MAIN LOOP ============================ */
+function loop(){
+  globeT+=0.012;
+  drawGlobe(); mapTick(); waveTick();
+  requestAnimationFrame(loop);
+}
+function start(){
+  sizeGlobe();sizeMap();sizeWave();
+  addEventListener('resize',()=>{sizeGlobe();sizeMap();sizeWave();});
+  loop();
+  // auto-repeat the dramatic sequence so the demo always shows one
+  setTimeout(function repeat(){
+    runSequence();
+    setTimeout(repeat, 13000);
+  }, 2500);
+}
+</script>
+</body>
+</html>
