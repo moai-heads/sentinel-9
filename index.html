@@ -174,6 +174,9 @@ main{flex:1;display:grid;grid-template-columns:290px 1fr 322px;gap:7px;min-heigh
 .urow .ud b{color:var(--grn)}
 .urow .cost{font-size:11px;color:var(--cyan);text-align:right;white-space:nowrap}
 .urow .cost small{display:block;font-size:8px;color:var(--dim)}
+.urow.lock{opacity:.55;cursor:not-allowed}
+.urow .wl{font-size:8px;letter-spacing:.08em;color:var(--cyan);border:1px solid #1d4a5c;border-radius:2px;padding:0 4px;margin-left:5px}
+.urow .wl.no{color:var(--dim);border-color:#243040}
 button.purge{width:100%;margin-top:7px;font:inherit;cursor:pointer;background:#0a1a22;color:var(--cyan);
   border:1px solid #1d4a5c;border-radius:3px;padding:7px;letter-spacing:.09em;text-transform:uppercase;font-size:10.5px;transition:.08s}
 button.purge:hover:not(:disabled){background:#102733;border-color:var(--cyan);box-shadow:0 0 14px rgba(84,224,240,.2) inset}
@@ -240,9 +243,13 @@ footer{display:flex;justify-content:space-between;align-items:center;gap:12px;bo
   <main>
     <!-- LEFT: system nodes -->
     <div class="col">
-      <div class="panel grow">
+      <div class="panel" style="flex:1 1 44%">
         <div class="phead">SYSTEM NODES <span class="x" id="nodeCount">0 ONLINE</span></div>
         <div id="roster" class="grow"></div>
+      </div>
+      <div class="panel grow">
+        <div class="phead">AUTO-FIRE WEAPONS <span class="x" id="wCount">0 / 5</span></div>
+        <div id="weapons" class="grow"></div>
       </div>
     </div>
 
@@ -271,7 +278,7 @@ footer{display:flex;justify-content:space-between;align-items:center;gap:12px;bo
             </div>
             <div class="core-stats">
               <span>THREATS ACTIVE <b id="thCount">0</b></span>
-              <span>ANTIVIRUS <b id="thAv">0</b>/s</span>
+              <span>WEAPON DPS <b id="thAv">0</b>/s</span>
               <span>CHECKSUM <b id="hChk">0</b></span>
             </div>
           </div>
@@ -351,7 +358,18 @@ const MODULES=[
   {id:"cache",name:"CACHE BUS",     desc:l=>"+15% compute yield  <b>lv "+l+"</b>",    res:"compute",base:80,  scale:1.80},
   {id:"abus", name:"ADDRESS BUS",   desc:l=>"+15% memory yield  <b>lv "+l+"</b>",     res:"memory", base:80,  scale:1.80},
   {id:"fwall",name:"FIREWALL",      desc:l=>"-14% incoming damage  <b>lv "+l+"</b>",  res:"compute",base:150, scale:2.00,max:6},
-  {id:"av",   name:"ANTIVIRUS ENGINE",desc:l=>"+8 threat dps  <b>lv "+l+"</b>",       res:"compute",base:200, scale:1.90},
+  {id:"over", name:"OVERCLOCK CORE",desc:l=>"+10% weapon damage  <b>lv "+l+"</b>",    res:"compute",base:220, scale:1.85,max:12},
+  {id:"cool", name:"COOLANT LOOP",  desc:l=>"+8% weapon fire rate  <b>lv "+l+"</b>",  res:"memory", base:260, scale:1.88,max:12},
+];
+
+/* ===================== WEAPONS (auto-fire; start with one, unlock the rest) ===================== */
+/* dmg = damage per shot, rate = seconds between shots, chain = targets per shot (99 = all) */
+const WEAPONS=[
+  {id:"pulse",name:"PULSE SENDER",  note:"baseline coilgun",            res:"compute",dmg:13, rate:1.40, unlock:0,    base:26,  scale:1.62,chain:1, minSector:0, col:[120,240,255]},
+  {id:"packet",name:"PACKET CANNON",note:"rapid kinetic packets",       res:"compute",dmg:11, rate:0.52, unlock:140,  base:55,  scale:1.60,chain:1, minSector:0, col:[150,255,190]},
+  {id:"lance", name:"SIGNAL LANCE", note:"charged piercing beam",       res:"compute",dmg:96, rate:2.60, unlock:1600, base:240, scale:1.66,chain:1, minSector:1, col:[255,236,140]},
+  {id:"arc",   name:"TESLA ARC",    note:"chains to nearby threats",    res:"memory", dmg:9,  rate:0.42, unlock:3200, base:300, scale:1.60,chain:3, minSector:2, col:[190,150,255]},
+  {id:"emp",   name:"EMP BURST",    note:"hits every threat in bounds", res:"memory", dmg:44, rate:3.20, unlock:12000,base:520, scale:1.66,chain:99,minSector:3, col:[255,150,90]},
 ];
 
 const SECTORS=[
@@ -363,9 +381,12 @@ const SAVE_KEY="sentinel9_netcleanse_v1";
 /* ===================== STATE ===================== */
 let S;
 function freshState(){return{compute:0,memory:0,integrity:100,cleaned:0,sector:0,kills:0,totalKills:0,
-  checksums:0,crashes:0,sel:0,mlv:{clock:0,cache:0,abus:0,fwall:0,av:0},t:0,spawnT:4,threats:[]};}
+  checksums:0,crashes:0,sel:0,mlv:{clock:0,cache:0,abus:0,fwall:0,over:0,cool:0},wlv:{pulse:1},t:0,spawnT:4,threats:[]};}
 function load(){try{const r=localStorage.getItem(SAVE_KEY);if(r){S=JSON.parse(r);
-    if(!S.mlv)S.mlv={clock:0,cache:0,abus:0,fwall:0,av:0};if(!S.threats)S.threats=[];
+    if(!S.mlv)S.mlv={clock:0,cache:0,abus:0,fwall:0,over:0,cool:0};
+    if(!S.mlv.over&&S.mlv.over!==0)S.mlv.over=0; if(!S.mlv.cool&&S.mlv.cool!==0)S.mlv.cool=0;
+    if(!S.wlv)S.wlv={pulse:1}; if(!S.wlv.pulse)S.wlv.pulse=1;
+    if(!S.threats)S.threats=[];
     if(Array.isArray(S.nodes))NODES.forEach((n,i)=>{n.level=S.nodes[i]||0;});
     NODES.forEach((n,i)=>{n.unlocked=(i===0)||(NODES[i-1].level>=1);});
     if(!Array.isArray(S.threats)||S.threats.some(th=>!th||th.lx===undefined||th.r===undefined||th.r>SPAWN_R*1.5))S.threats=[];
@@ -396,7 +417,17 @@ function nodeCost(n){return Math.ceil(n.cost*Math.pow(n.scale,n.level));}
 function moduleCost(m){return Math.ceil(m.base*Math.pow(m.scale,S.mlv[m.id]||0));}
 function nodeAfford(n){return (n.type==="compute"?S.compute:S.memory)>=nodeCost(n);}
 function moduleAfford(m){return (m.res==="memory"?S.memory:S.compute)>=moduleCost(m);}
-function threatDps(){return 8*(1+ (S.mlv.av||0)) ;}
+function weaponLv(w){return S.wlv[w.id]||0;}
+function weaponOwned(w){return weaponLv(w)>0;}
+function overMult(){return 1+0.10*(S.mlv.over||0);}
+function coolMult(){return Math.pow(1.08,S.mlv.cool||0);}
+function weaponDmg(w){const l=weaponLv(w);return l<=0?0:w.dmg*Math.pow(1.24,l-1)*overMult();}
+function weaponRate(w){return w.rate/coolMult();}
+function weaponUpCost(w){const l=weaponLv(w);return Math.ceil(l<=0? w.unlock : w.base*Math.pow(w.scale,l-1));}
+function weaponAfford(w){return (w.res==="memory"?S.memory:S.compute)>=weaponUpCost(w);}
+function weaponUnlockable(w){return weaponLv(w)>0 || sector()>=w.minSector;}
+function totalWeaponDps(){let d=0;for(const w of WEAPONS){const l=weaponLv(w);if(l>0)d+=weaponDmg(w)/weaponRate(w)*Math.min(w.chain,2);}return d;}
+function threatDps(){return totalWeaponDps();}
 function firewallMult(){return Math.max(0.16,1-0.14*(S.mlv.fwall||0));}
 function sector(){return S.sector;}
 function sectorName(){return SECTORS[Math.min(S.sector,SECTORS.length-1)][0];}
@@ -452,8 +483,11 @@ function purge(){
 function addClean(pct){
   S.cleaned+=pct;
   if(S.cleaned>=100){S.cleaned=0;S.sector++;
+    const ri=Math.min(S.sector-1,SECTORS.length-1);            /* clamp: sectors scale endlessly */
     log("SECTOR CLEANSED &mdash; advancing to <b>"+sectorName()+"</b>","ok");
-    showOverlay("SECTOR CLEANSED","You scrubbed the "+SECTORS[Math.max(0,S.sector-1)][0]+". Next region uplinked.","+1 SECTOR  |  THREATS HARDER, YIELDS HIGHER");
+    showOverlay("SECTOR CLEANSED","You scrubbed the "+SECTORS[ri][0]+". "+
+      (S.sector<SECTORS.length?"Next region uplinked.":"All known regions uplinked."),
+      "+1 SECTOR  |  THREATS HARDER, YIELDS HIGHER");
   }
   syncHud();
 }
@@ -481,15 +515,18 @@ function crash(){
 /* Threats live in the 3D scene: r is a WORLD radius from the core.
    They fly in from the front hemisphere and converge on the monitor. */
 const CONTACT_R=1.00;
-const SPAWN_R=3.20;
-const THREAT_WORLD={ sx0:1.26, sy0:0.30, sz0:0.86, sy1:0.52, sz1:0.16,
-                     sx1:0.52, cy0:0.78, cz0:1.10, cy1:0.26, cz1:0.12 };
+const SPAWN_R=5.20;
+/* enemies spawn out in the room (wide, high, toward the camera) and fly in to the monitor */
+const THREAT_WORLD={
+  spawn:  {x:2.05, y:1.72, z:2.35, yJ:0.95, zJ:0.75},
+  contact:{x:0.50, y:0.80, z:1.06, yJ:0.30, zJ:0.26}
+};
 function threatWorld(th){
   const t=Math.min(1,Math.max(0,(SPAWN_R-th.r)/(SPAWN_R-CONTACT_R)));
   const e=t*t*(3-2*t);
-  const W2=THREAT_WORLD;
-  const sx0=th.lx*W2.sx0, sy0=W2.cy0+0.26+th.ly*W2.sy1, sz0=W2.sz0+th.ly*W2.sz1;
-  const sx1=th.lx*W2.sx1, sy1=W2.cy0+th.ly*W2.cy1,      sz1=W2.cz0+th.ly*W2.cz1;
+  const sp=THREAT_WORLD.spawn, co=THREAT_WORLD.contact;
+  const sx0=th.lx*sp.x, sy0=sp.y+th.ly*sp.yJ, sz0=sp.z+th.ly*sp.zJ;
+  const sx1=th.lx*co.x, sy1=co.y+th.ly*co.yJ, sz1=co.z+th.ly*co.zJ;
   const lunge=th.phase==="attack"?Math.max(0,Math.sin(S.t*4.2+th.bobPh))*0.045:0;
   th.wx=sx0+(sx1-sx0)*e;
   th.wy=sy0+(sy1-sy0)*e + Math.sin(S.t*2.3+th.bobPh)*0.05 - lunge;
@@ -520,16 +557,8 @@ function spawnThreat(){
   S.threats.push(th);
 }
 function stepThreats(dt){
-  const avDps=threatDps();
   for(const th of S.threats){
     if(th.phase==="dying"){th.dieT-=dt;continue;}
-    // antivirus fire (hits threats on approach and in contact)
-    th.hp-=avDps*dt;
-    if(th.hp<=0){
-      th.hp=0;th.phase="dying";th.dieT=0.42;
-      burst(th);neutralized(th);
-      continue;
-    }
     th.spin+=th.spinSpd*dt;
     if(th.phase==="approach"){
       th.r-=th.spd*dt*(1+0.06*sector());
@@ -553,6 +582,32 @@ function stepThreats(dt){
   }
   // integrity slow regen when safe
   if(S.threats.length===0&&S.integrity<100)S.integrity=Math.min(100,S.integrity+3*dt);
+}
+/* ===================== WEAPON FIRE ===================== */
+let WCD={};                 // per-weapon cooldown timers (runtime only)
+let TRACERS=[];             // muzzle->target beams, fed to the PS1 renderer
+function damageThreat(th,dmg){
+  if(th.phase==="dying")return;
+  th.hp-=dmg;
+  if(th.hp<=0){th.hp=0;th.phase="dying";th.dieT=0.42;burst(th);neutralized(th);}
+}
+function pushTracer(th,w){
+  TRACERS.push({ax:0,ay:0.62,az:0.46, bx:th.wx,by:th.wy,bz:th.wz, col:w.col, life:0.17,max:0.17});
+  if(TRACERS.length>70)TRACERS.splice(0,TRACERS.length-70);
+}
+function stepWeapons(dt){
+  for(const id in WCD)WCD[id]-=dt;
+  for(const w of WEAPONS){
+    if(weaponLv(w)<=0)continue;
+    if(WCD[w.id]==null)WCD[w.id]=RNG()*0.4;
+    if(WCD[w.id]>0)continue;
+    const live=S.threats.filter(t=>t.phase!=="dying");
+    if(!live.length)continue;
+    WCD[w.id]=weaponRate(w);
+    live.sort((a,b)=>a.r-b.r);
+    const n=Math.min(w.chain,live.length), d=weaponDmg(w);
+    for(let i=0;i<n;i++){const t=live[i];damageThreat(t,d);pushTracer(t,w);}
+  }
 }
 function renderThreats(){
   /* threats are drawn INSIDE the PS1 3D scene now, not as DOM overlays */
@@ -639,7 +694,7 @@ function renderFx(dt){
 const Core3D=(function(){
   const W=248,H=162;
   const cv=document.getElementById("core3d");
-  if(!cv)return{frame(){},setScreen(){},setBright(){},setFlags(){},setThreats(){},project(){return {x:-9999,y:-9999,zv:0,k:0,vis:false};}};
+  if(!cv)return{frame(){},setScreen(){},setBright(){},setFlags(){},setThreats(){},setTracers(){},project(){return {x:-9999,y:-9999,zv:0,k:0,vis:false};}};
   cv.width=W;cv.height=H;
   const ctx=cv.getContext("2d");
   const back=document.createElement("canvas");back.width=W;back.height=H;
@@ -696,9 +751,9 @@ const Core3D=(function(){
   const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
   const nrm=a=>{const l=Math.hypot(a[0],a[1],a[2])||1;return[a[0]/l,a[1]/l,a[2]/l];};
 
-  const camPos=[0,1.55,3.35], camAt=[0,0.55,0.00];
+  const camPos=[0,1.98,4.95], camAt=[0,0.62,0.00];
   const F=nrm(sub(camAt,camPos)), R=nrm(cross(F,[0,1,0])), U=cross(R,F);
-  const FOC=(H/2)/Math.tan((42*Math.PI/180)/2);
+  const FOC=(H/2)/Math.tan((54*Math.PI/180)/2);
   const LIGHT=nrm([-0.42,0.82,0.52]);
 
   /* ---------- geometry ---------- */
@@ -717,7 +772,7 @@ const Core3D=(function(){
   }
 
   /* floor */
-  scene.push(face([[-9,0,-8],[9,0,-8],[9,0,1.2],[-9,0,1.2]],[0,1,0],[255,255,255],{tex:texGrid,uv:[[0,0],[1,0],[1,1],[0,1]],nc:true}));
+  scene.push(face([[-15,0,-12],[15,0,-12],[15,0,7],[-15,0,7]],[0,1,0],[255,255,255],{tex:texGrid,uv:[[0,0],[2,0],[2,1.1],[0,1.1]],nc:true}));
 
   /* monitor + screen */
   addBox(model,0,0.62,0,1.5,1.05,0.9,[26,66,80],texMetal);
@@ -813,6 +868,7 @@ const Core3D=(function(){
   /* ---------- state ---------- */
   let yaw=0.30, bright=1, flags={glitch:false,healing:false};
   let enemies=[];
+  let tracers=[];
   const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
 
   /* project a point given in the (rotating) rig frame to canvas coords */
@@ -984,6 +1040,21 @@ const Core3D=(function(){
       bg.fillRect(x0,y0,Math.max(1,Math.round(w2*e.hpPct)),h2);
     }
 
+    // weapon tracers: bright beam from the monitor muzzle to each target
+    for(const t of tracers){
+      const kol=t.life/t.max;
+      const a=project([t.ax,t.ay,t.az]), b=project([t.bx,t.by,t.bz]);
+      const vis = a.vis || b.vis;
+      if(!vis) continue;
+      const px = a.vis?a.x:b.x, py = a.vis?a.y:b.y;
+      bg.globalAlpha = Math.max(0,kol)*0.9;
+      bg.strokeStyle = "rgb("+t.col[0]+","+t.col[1]+","+t.col[2]+")";
+      bg.lineWidth = 1;
+      bg.beginPath(); bg.moveTo(px,py); bg.lineTo(b.x,b.y); bg.stroke();
+      if(b.vis){ bg.fillStyle="rgba(255,255,255,"+(Math.max(0,kol)*0.9).toFixed(2)+")"; bg.fillRect(Math.round(b.x)-1,Math.round(b.y)-1,3,3); }
+      bg.globalAlpha = 1;
+    }
+
     dither();
     ctx.setTransform(1,0,0,1,0,0);
     ctx.clearRect(0,0,W,H);ctx.imageSmoothingEnabled=false;
@@ -1010,6 +1081,7 @@ const Core3D=(function(){
     setBright(v){bright=v;},
     setFlags(g,h){flags.glitch=g;flags.healing=h;},
     setThreats(list){enemies=list||[];},
+    setTracers(list){tracers=list||[];},
     project(p){return project(p);}
   };
 })();
@@ -1042,6 +1114,10 @@ function tick(dt){
     }
   }
   stepThreats(dt);
+  stepWeapons(dt);
+  for(const t of TRACERS)t.life-=dt;
+  TRACERS=TRACERS.filter(t=>t.life>0);
+  Core3D.setTracers(TRACERS);
   if(autoplayOn){autoT+=dt;while(autoT>=AUTO_PERIOD){autoT-=AUTO_PERIOD;think();}}
 }
 function frame(now){
@@ -1082,6 +1158,34 @@ function renderRoster(){
     }
     el.appendChild(row);
   });
+}
+function renderWeapons(){
+  const el=document.getElementById("weapons");if(!el)return;el.innerHTML="";
+  WEAPONS.forEach(w=>{
+    const l=weaponLv(w), owned=l>0, locked=!weaponUnlockable(w), aff=weaponAfford(w);
+    const row=document.createElement("div");
+    row.className="urow"+((aff&&!locked)?"":" no")+(locked?" lock":"");
+    const cost=weaponUpCost(w);
+    const rn=w.res==="memory"?"MEMORY":"COMPUTE";
+    row.innerHTML='<div><div class="ut">'+w.name+
+      '<span class="wl'+(owned?"":" no")+'">'+(owned?"Lv "+l:"LOCKED")+'</span></div>'+
+      '<div class="ud">'+w.note+' &middot; '+w.dmg+' dmg @ '+w.rate.toFixed(2)+'s'+
+      (w.chain>1?(' &middot; \u00d7'+w.chain):'')+'</div></div>'+
+      '<div class="cost">'+(locked?('S'+(w.minSector+1)):fmt(cost))+'<small>'+(locked?"SECTOR":rn)+'</small></div>';
+    if(!locked)row.onclick=()=>buyWeapon(w);
+    el.appendChild(row);
+  });
+  const wc=document.getElementById("wCount");
+  if(wc)wc.textContent=WEAPONS.filter(w=>weaponLv(w)>0).length+" / "+WEAPONS.length;
+}
+function buyWeapon(w){
+  if(!weaponUnlockable(w)||!weaponAfford(w))return;
+  const c=weaponUpCost(w);
+  if(w.res==="memory")S.memory-=c;else S.compute-=c;
+  S.wlv[w.id]=(S.wlv[w.id]||0)+1;
+  const l=S.wlv[w.id];
+  log(l===1?("WEAPON ONLINE &rarr; <b>"+w.name+"</b>"):("WEAPON UPGRADE "+w.name+" &rarr; Lv "+l+" (&minus;"+fmt(c)+")"),"cy");
+  renderWeapons();syncHud();save();
 }
 function renderShop(){
   const el=document.getElementById("shop");el.innerHTML="";
@@ -1137,6 +1241,9 @@ function syncHud(){
   });
   const shop=document.getElementById("shop").children;
   MODULES.forEach((m,i)=>{const r=shop[i];if(r)r.classList.toggle("no",!moduleAfford(m));});
+  const wl=document.getElementById("weapons");
+  if(wl)WEAPONS.forEach((w,i)=>{const r=wl.children[i];if(!r)return;
+    if(weaponUnlockable(w))r.classList.toggle("no",!weaponAfford(w));});
   const nb=document.getElementById("ndUp");
   if(nb){const n=NODES[S.sel];nb.disabled=!n.unlocked||!nodeAfford(n);}
   renderThreatList();
@@ -1180,12 +1287,12 @@ function renderThreatList(){
     el.innerHTML=h;
   }
   const info=document.getElementById("tinfo");
-  if(info)info.innerHTML='ANTIVIRUS <b>'+fmt(threatDps())+'</b>/s &middot; FIREWALL <b>'+Math.round((1-firewallMult())*100)+'%</b>';
+  if(info)info.innerHTML='WEAPON DPS <b>'+fmt(threatDps())+'</b>/s &middot; FIREWALL <b>'+Math.round((1-firewallMult())*100)+'%</b>';
   const wv=document.getElementById("thWave");
   if(wv)wv.textContent="MAX "+(2+Math.floor(sector()*0.6));
 }
 
-function renderAll(){renderRoster();renderShop();renderNodeDetail();syncHud();}
+function renderAll(){renderRoster();renderWeapons();renderShop();renderNodeDetail();syncHud();}
 
 function showOverlay(title,msg,k,good){
   document.getElementById("ovTitle").textContent=title;
@@ -1204,6 +1311,18 @@ function think(){
   if(!canPurge()&&S.cleaned>60&&(S.compute>purgeCostC()*0.6||S.memory>purgeCostM()*0.6)){/*save*/}
   // buy any affordable module first
   for(const m of MODULES){if(moduleAfford(m)&&(S.mlv[m.id]||0)<(m.max??1e9)){buyModule(m);return;}}
+  // unlock a new weapon when we can comfortably afford it (big DPS jumps)
+  for(const w of WEAPONS){
+    if(!weaponUnlockable(w)||weaponLv(w)>0)continue;
+    const c=weaponUpCost(w), bal=w.res==="memory"?S.memory:S.compute;
+    if(bal>=c*2){buyWeapon(w);return;}
+  }
+  // then upgrade owned weapons only when very cheap relative to the bank
+  for(const w of WEAPONS){
+    if(weaponLv(w)<=0||!weaponAfford(w))continue;
+    const c=weaponUpCost(w), bal=w.res==="memory"?S.memory:S.compute;
+    if(bal>=c*3){buyWeapon(w);return;}
+  }
   // upgrade affordable nodes, prefer the selected/cheapest high-tier
   for(let i=NODES.length-1;i>=0;i--){const n=NODES[i];if(n.unlocked&&nodeAfford(n)){if(S.sel!==i)selectNode(i);upgradeNode(i);return;}}
   // purge if rich
@@ -1219,6 +1338,16 @@ log("SENTINEL-9 NET CLEANSE SUBSYSTEM ONLINE","cy");
 log("Select a node to accelerate its COMPUTE/MEMORY collection. Defend the core.","warn");
 autoplayOn=(params.get("autoplay")==="1");
 if(SIM_SECONDS>0){ S=freshState(); simulate(SIM_SECONDS*SPEED,1/30); renderAll(); }
+/* headless balance probe (test-only, opt-in via ?probe=1): dumps final state into the DOM */
+if(params.get("probe")){
+  const p=document.createElement("pre");p.id="probe";
+  p.textContent=JSON.stringify({t:S.t,compute:Math.floor(S.compute),memory:Math.floor(S.memory),cleaned:+S.cleaned.toFixed(1),
+    sector:S.sector,integrity:+S.integrity.toFixed(0),kills:S.kills,totalKills:S.totalKills,checksums:S.checksums,crashes:S.crashes,
+    nodes:NODES.map(n=>({lv:n.level,un:n.unlocked})),mlv:S.mlv,wlv:S.wlv,
+    nodeRate:+NODES.reduce((a,n)=>a+(n.unlocked?nodeRate(n):0),0).toFixed(1),dps:+threatDps().toFixed(1),
+    threats:S.threats.map(th=>th.phase)});
+  document.body.appendChild(p);
+}
 last=performance.now();
 window.addEventListener("resize",fitVis);
 fitVis();setTimeout(fitVis,60);setTimeout(fitVis,420);
