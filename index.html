@@ -76,7 +76,7 @@ body{background:var(--bg);color:var(--txt);letter-spacing:.02em;overflow:hidden;
    SENTINEL-9 // NET CLEANSE — first-person city defender.
    Run around the city, shoot the viruses before they reach the
    computer at the centre. The core also runs one auto-fire
-   turret so it can defend itself a little.
+   turret, which must be installed via an upgrade.
    ============================================================ */
 
 const params=new URLSearchParams(location.search);
@@ -100,10 +100,8 @@ function fmt(n){
 /* S is shared with the first-person module (threats live in the 3D scene). */
 const S={integrity:100,kills:0,wave:1,t:0,spawnT:1.5,threats:[],over:false,
   /* wave / intermission phase machine (see updatePhase) */
-  phase:"wave",quota:8,spawned:0,compileT:0,chooseT:0,choices:null};
+  phase:"wave",quota:14,spawned:0,chooseT:0,choices:null};
 let autoplayOn=(params.get("autoplay")==="1");
-/* how long the core monitor spends "compiling" the next upgrade set */
-const COMPILE_TIME=Math.max(0.3,parseFloat(params.get("compile")||"")||7.5);
 /* set true to force the core screen texture to re-upload on the next tick */
 let SCREEN_REFRESH=true;
 
@@ -112,7 +110,9 @@ const UPG={dmg:0,rate:0,speed:0,armor:0,turret:0,spread:0,crit:0};
 const UPGRADE_POOL=[
   {id:"dmg",   name:"OVERCHARGE",     desc:"+30% weapon damage",              apply(){UPG.dmg++;}},
   {id:"rate",  name:"RAPID CYCLER",   desc:"+18% fire rate",                  apply(){UPG.rate++;}},
-  {id:"turret",name:"CORE TURRET +",  desc:"+35% core turret damage",         apply(){UPG.turret++;}},
+  {id:"turret", get name(){return UPG.turret>=1?"CORE TURRET +":"CORE TURRET";},
+                get desc(){return UPG.turret>=1?"+35% core turret damage":"install an auto-fire turret on the core";},
+                apply(){UPG.turret++;}},
   {id:"speed", name:"SERVO LEGS",     desc:"+14% move speed",                 apply(){UPG.speed++;}},
   {id:"armor", name:"HARDENED SHELL", desc:"-12% damage taken",               apply(){UPG.armor++;}},
   {id:"spread",name:"SPLIT BARREL",   desc:"shots ricochet to 1 more threat", apply(){UPG.spread++;}},
@@ -198,7 +198,7 @@ function stepThreats(dt){
     if(S.spawnT<=0&&remaining>0&&S.threats.length<maxT){
       spawnThreat();
       S.spawned++;
-      S.spawnT=Math.max(0.45,2.2-(S.wave-1)*0.20);
+      S.spawnT=Math.max(0.45,2.8-(S.wave-1)*0.22);
     }
   }
   /* integrity regens whenever the core is not under attack */
@@ -207,8 +207,8 @@ function stepThreats(dt){
 }
 
 /* ===================== WEAPONS (core auto-fire turret) ===================== */
-/* The core keeps one built-in turret firing on its own, so it can defend
-   itself while the player runs around. */
+/* The core starts UNARMED. The player must install the CORE TURRET upgrade;
+   once installed it auto-fires on its own. */
 const WEAPONS=[
   {id:"pulse",name:"PULSE SENDER",chain:1,minSector:0,col:[120,240,255],dmg:8,rate:1.10}
 ];
@@ -216,7 +216,8 @@ function weaponLv(w){return 1;}
 function overMult(){return 1;}
 function coolMult(){return 1+0.18*UPG.rate;}
 function weaponRate(w){return w.rate;}
-function weaponDmg(w){return w.dmg*(1+0.35*UPG.turret);}
+function turretOnline(){return UPG.turret>=1;}
+function weaponDmg(w){return w.dmg*(1+0.35*Math.max(0,UPG.turret-1));}
 function totalWeaponDps(){let d=0;for(const w of WEAPONS)d+=weaponDmg(w)/weaponRate(w);return d;}
 function threatDps(){return totalWeaponDps();}
 
@@ -232,6 +233,7 @@ function pushTracer(th,w){
 }
 const WCD={};
 function stepWeapons(dt){
+  if(!turretOnline())return;
   for(const id in WCD)WCD[id]-=dt;
   for(const w of WEAPONS){
     if(WCD[w.id]==null)WCD[w.id]=RNG()*0.4;
@@ -245,18 +247,20 @@ function stepWeapons(dt){
   }
 }
 
-/* ===================== WAVE / INTERMISSION PHASE MACHINE =====================
+/* ===================== WAVE / UPGRADE PHASE MACHINE =====================
    A wave is a finite quota of threats. When the quota is spent and every threat
-   is destroyed the core enters COMPILE: the monitor shows a progress bar that
-   fills slowly. When it fills, three upgrades are offered ON THE MONITOR; the
-   player presses 1/2/3 to install one, and that immediately starts the next
-   wave. */
-function beginCompile(){
-  S.phase="compile";S.compileT=0;S.chooseT=0;S.choices=null;
-  SCREEN_REFRESH=true;
-}
+   is destroyed, three upgrades are offered ON THE MONITOR immediately (no
+   waiting on a progress bar); the player presses 1/2/3 to install one, and that
+   immediately starts the next wave. */
 function beginChoose(){
   S.phase="choose";S.choices=rollUpgrades(3);S.chooseT=0;
+  /* the first time, guarantee the core turret is installable */
+  if(UPG.turret<1){
+    const turretDef=UPGRADE_POOL.find(c=>c.id==="turret");
+    const ti=S.choices.findIndex(c=>c.id==="turret");
+    if(ti<0)S.choices[0]=turretDef;
+    else if(ti>0){S.choices.splice(ti,1);S.choices.unshift(turretDef);}
+  }
   SCREEN_REFRESH=true;
 }
 function rollUpgrades(n){
@@ -271,9 +275,9 @@ function pickUpgrade(idx){
   const c=S.choices[idx];if(!c)return null;
   c.apply();
   S.wave++;
-  S.quota=8+3*(S.wave-1);
+  S.quota=14+3*(S.wave-1);
   S.spawned=0;S.spawnT=2.0;
-  S.phase="wave";S.choices=null;S.compileT=0;S.chooseT=0;
+  S.phase="wave";S.choices=null;S.chooseT=0;
   SCREEN_REFRESH=true;
   return c;
 }
@@ -281,10 +285,7 @@ function updatePhase(dt){
   if(S.over)return;
   if(S.phase==="wave"){
     const live=S.threats.reduce((n,t)=>n+(t.phase!=="dying"?1:0),0);
-    if(S.spawned>=S.quota&&live===0)beginCompile();
-  }else if(S.phase==="compile"){
-    S.compileT+=dt;
-    if(S.compileT>=COMPILE_TIME)beginChoose();
+    if(S.spawned>=S.quota&&live===0)beginChoose();
   }else if(S.phase==="choose"){
     S.chooseT+=dt;
     if(autoplayOn&&S.chooseT>1.6)pickUpgrade((RNG()*S.choices.length)|0);
@@ -348,7 +349,7 @@ function gameOver(){
 }
 function redeploy(){
   S.integrity=100;S.kills=0;S.wave=1;S.t=0;S.spawnT=1.5;S.threats=[];S.over=false;
-  S.phase="wave";S.quota=8;S.spawned=0;S.compileT=0;S.chooseT=0;S.choices=null;
+  S.phase="wave";S.quota=14;S.spawned=0;S.chooseT=0;S.choices=null;
   for(const k in UPG)UPG[k]=0;
   TRACERS=[];PFX=[];DMG=[];shieldTier=-1;breachT=0;shakeT=0;
   SCREEN_REFRESH=true;
@@ -1071,8 +1072,8 @@ const GLWorld=(function(){
 })();
 /* ===================== CORE MONITOR SCREEN (in-world CRT) =====================
    A black screen with green text, drawn to a canvas that GLWorld maps onto the
-   computer's monitor inside the 3D city. It narrates the wave, shows the
-   compile progress bar, and presents the three upgrade choices. */
+   computer's monitor inside the 3D city. It narrates the wave and presents
+   the three upgrade choices. */
 const Screen=(function(){
   const W=256,H=160;
   const cv=document.createElement("canvas");cv.width=W;cv.height=H;
@@ -1125,16 +1126,6 @@ const Screen=(function(){
       }
       const p=S.chooseT||0;
       ctxt("PRESS 1 / 2 / 3 TO INSTALL"+(((p*2)|0)%2?"_":""),H-16,G,9,true);
-    }else if(S.phase==="compile"){
-      header("PATCHING");
-      ctxt("WAVE "+S.wave+" CLEARED",26,G,11,true);
-      ctxt("COMPILING UPGRADE MODULE",44,GD,9,false);
-      const pct=Math.min(1,S.compileT/COMPILE_TIME);
-      bar(16,60,W-32,16,pct);
-      ctxt(Math.round(pct*100)+"%",82,G,10,true);
-      const dots="...".slice(0,1+(((S.t*2)|0)%3));
-      ctxt("DECRYPTING PATCH DATABASE"+dots,104,GD,9,false);
-      ctxt("STAND BY",H-16,GD,9,false);
     }else{
       header("WAVE "+S.wave);
       ctxt("CONTAINMENT ACTIVE",26,G,11,true);
@@ -1143,7 +1134,8 @@ const Screen=(function(){
         ["THREATS ACTIVE",String(live)],
         ["SPAWNED",S.spawned+"/"+S.quota],
         ["INTEGRITY",Math.max(0,Math.round(S.integrity))+"%"],
-        ["NEUTRALIZED",String(S.kills)]
+        ["NEUTRALIZED",String(S.kills)],
+        ["CORE TURRET",turretOnline()?"ONLINE":"OFFLINE"]
       ];
       for(let i=0;i<rows.length;i++){
         const y=48+i*15;
@@ -1159,7 +1151,7 @@ const Screen=(function(){
   }
   function tick(){
     const key=S.phase+"|"+S.wave+"|"+S.threats.length+"|"+Math.round(S.integrity)+"|"+S.spawned+"|"+
-      Math.round((S.phase==="compile"?S.compileT:(S.phase==="choose"?S.chooseT:0))*10)+"|"+
+      Math.round((S.phase==="choose"?S.chooseT:0)*10)+"|"+
       (S.choices?S.choices.map(c=>c.id).join(","):"")+"|"+((S.t*2)|0);
     if(!SCREEN_REFRESH&&key===lastKey)return;
     lastKey=key;
@@ -1797,12 +1789,6 @@ const FPS=(function(){
       const opts=(S.choices||[]).map((c,i)=>"["+(i+1)+"] "+c.name).join("   ");
       g.fillText(opts,(W-g.measureText(opts).width)/2,58);
       hint="PRESS 1 / 2 / 3 TO INSTALL AN UPGRADE";
-    }else if(S.phase==="compile"){
-      const pct=Math.min(1,S.compileT/COMPILE_TIME);
-      g.fillStyle="#8fe8ff";g.font="bold 9px ui-monospace,monospace";
-      const t="COMPILING UPGRADE MODULE "+Math.round(pct*100)+"%";
-      g.fillText(t,(W-g.measureText(t).width)/2,42);
-      hint="STAND BY  \u2014  NEXT WAVE INBOUND";
     }else{
       hint=locked?"WASD MOVE  \u00b7  MOUSE AIM  \u00b7  CLICK FIRE  \u00b7  ESC RELEASE":"CLICK TO CAPTURE MOUSE  \u00b7  WASD MOVE  \u00b7  SHOOT THE VIRUSES BEFORE THEY REACH THE CORE";
     }
@@ -1897,14 +1883,14 @@ if(params.get("probe")){
     let p=document.getElementById("probe");
     if(!p){p=document.createElement("pre");p.id="probe";p.style.cssText="position:fixed;left:-9999px";document.body.appendChild(p);}
     p.textContent=JSON.stringify({t:+S.t.toFixed(1),integrity:+S.integrity.toFixed(1),kills:S.kills,
-      wave:S.wave,phase:S.phase,quota:S.quota,spawned:S.spawned,compileT:+S.compileT.toFixed(1),
+      wave:S.wave,phase:S.phase,quota:S.quota,spawned:S.spawned,
       choices:S.choices?S.choices.map(c=>c.id):null,upg:Object.assign({},UPG),
       threats:S.threats.length,phases:S.threats.map(t=>t.phase),over:S.over,
       fpsActive:FPS.isActive(),enemies:FPS.enemies,gl:!!(typeof GLWorld!=="undefined"&&GLWorld.ok)});
   },200);
 }
 window.__game={get state(){return S;},get upg(){return UPG;},spawnThreat,stepThreats,stepWeapons,damageThreat,tick,fps:FPS,redeploy,gameOver,
-  pickUpgrade,beginCompile,beginChoose,rollUpgrades,screen:Screen,
+  pickUpgrade,beginChoose,rollUpgrades,screen:Screen,
   get glOK(){try{return GLWorld.ok;}catch(e){return false;}}};
 
 </script>

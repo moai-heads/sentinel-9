@@ -1,4 +1,4 @@
-// Headless verification of the wave -> compile -> choose -> next-wave flow
+// Headless verification of the wave -> choose -> next-wave flow
 // and the live core monitor screen. Usage: node tools/playtest_phases.js
 const { spawn } = require("child_process");
 const fs=require("fs"),http=require("http"),path=require("path");
@@ -24,7 +24,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   await new Promise(r=>ws.onopen=r);
   await send("Runtime.enable");await send("Page.enable");
   await send("Emulation.setDeviceMetricsOverride",{width:1280,height:800,deviceScaleFactor:1,mobile:false});
-  await send("Page.navigate",{url:"file://"+path.join(ROOT,"index.html")+"?probe=1&seed=7&autoplay=1&compile=1.0"});
+  await send("Page.navigate",{url:"file://"+path.join(ROOT,"index.html")+"?probe=1&seed=7&autoplay=1"});
   await sleep(2200);
 
   const ev=async(expr)=>{const r=await send("Runtime.evaluate",{expression:expr,returnByValue:true,awaitPromise:true});
@@ -40,12 +40,10 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
     for(const th of s.threats){th.hp=0;}
     return {spawned:s.spawned,quota:s.quota,threats:s.threats.length};})()`);
 
-  // let stepThreats run -> all die -> wave ends -> compile
+  // let stepThreats run -> all die -> wave ends -> choose immediately (no compile wait)
   await sleep(1600);
-  out.afterClear=await ev("(()=>{const s=window.__game.state;return {phase:s.phase,threats:s.threats.length,compileT:+s.compileT.toFixed(2)};})()");
+  out.afterClear=await ev("(()=>{const s=window.__game.state;return {phase:s.phase,threats:s.threats.length};})()");
 
-  // wait for compile (1.0s) -> choose
-  await sleep(1600);
   out.choose=await ev("(()=>{const s=window.__game.state;return {phase:s.phase,choices:s.choices?s.choices.map(c=>c.id):null,chooseT:+s.chooseT.toFixed(2)};})()");
 
   // inspect the rendered core-monitor canvas: is it black with green content?
@@ -72,15 +70,6 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   // force game over -> redeploy resets everything
   out.reset=await ev(`(()=>{const g=window.__game;g.gameOver();g.redeploy();
     const s=g.state;return {phase:s.phase,wave:s.wave,upg:Object.assign({},g.upg),integrity:s.integrity};})()`);
-
-  // second shot: the compile bar, mid-fill
-  await ev(`(()=>{const g=window.__game;g.state.spawned=g.state.quota;for(const th of g.state.threats)th.hp=0;return 1;})()`);
-  await sleep(1500);
-  await ev(`(()=>{const g=window.__game;if(g.state.phase==='compile'){g.state.compileT=0.6;}
-    const P=g.fps.P;P.x=0;P.y=1.20;P.z=2.0;P.yaw=0;P.pitch=-0.358;return g.state.phase;})()`);
-  await sleep(500);
-  const s2=await send("Page.captureScreenshot",{format:"png"});
-  fs.writeFileSync(OUT.replace(/\.png$/,"_compile.png"),Buffer.from(s2.data,"base64"));
 
   out.logs=logs;
   console.log(JSON.stringify(out,null,2));
