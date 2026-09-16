@@ -1288,11 +1288,9 @@ const GLWorld=(function(){
     for(let c=0;c<4;c++)for(let r=0;r<4;r++){let s=0;for(let k=0;k<4;k++)s+=a[k*4+r]*b[c*4+k];o[c*4+r]=s;}return o;}
   function viewMat(ex,ey,ez,yaw,pitch){
     const cp=Math.cos(pitch),sp=Math.sin(pitch),cy=Math.cos(yaw),sy=Math.sin(yaw);
-    const fwd=[cp*sy,sp,-cp*cy], up=[sy*sp,cp,cy*sp];
-    const z=[-fwd[0],-fwd[1],-fwd[2]];
-    let x=[up[1]*z[2]-up[2]*z[1],up[2]*z[0]-up[0]*z[2],up[0]*z[1]-up[1]*z[0]];
-    const xl=Math.hypot(x[0],x[1],x[2])||1;x=[x[0]/xl,x[1]/xl,x[2]/xl];
-    const y=[z[1]*x[2]-z[2]*x[1],z[2]*x[0]-z[0]*x[2],z[0]*x[1]-z[1]*x[0]];
+    const fwd=[cp*sy,sp,-cp*cy];
+    /* proper FPS basis: right stays horizontal so the camera never rolls */
+    const x=[cy,0,sy], y=[-sy*sp,cp,cy*sp], z=[-fwd[0],-fwd[1],-fwd[2]];
     return [x[0],y[0],z[0],0, x[1],y[1],z[1],0, x[2],y[2],z[2],0,
             -(x[0]*ex+x[1]*ey+x[2]*ez), -(y[0]*ex+y[1]*ey+y[2]*ez), -(z[0]*ex+z[1]*ey+z[2]*ez), 1];
   }
@@ -1443,8 +1441,8 @@ const FPS=(function(){
   function basis(){
     const cy=Math.cos(P.yaw),sy=Math.sin(P.yaw),cp=Math.cos(P.pitch),sp=Math.sin(P.pitch);
     const dir=[cp*sy,sp,-cp*cy];
-    const right=[cy,0,-sy];
-    const up=[sy*sp,cp,cy*sp];
+    const right=[cy,0,sy];
+    const up=[-sy*sp,cp,cy*sp];
     return{dir:dir,right:right,up:up};
   }
   function project(p,B){
@@ -1633,7 +1631,7 @@ const FPS=(function(){
       let mvF=(keys["KeyW"]?1:0)-(keys["KeyS"]?1:0);
       let mvR=(keys["KeyD"]?1:0)-(keys["KeyA"]?1:0);
       const cy=Math.cos(P.yaw),sy=Math.sin(P.yaw);
-      const fwd=[sy,0,-cy], rgt=[cy,0,-sy];
+      const fwd=[sy,0,-cy], rgt=[cy,0,sy];
       let dx=(mvF*fwd[0]+mvR*rgt[0])*sp*dt;
       let dz=(mvF*fwd[2]+mvR*rgt[2])*sp*dt;
       if(dx||dz){
