@@ -105,15 +105,17 @@ let autoplayOn=(params.get("autoplay")==="1");
 /* Threats live in the 3D scene: r is a WORLD radius from the core.
    They spawn on a ring around the core (full 360) and fly inward to the computer. */
 const CONTACT_R=1.00;
-const SPAWN_R=5.20;
-const RING_R=4.60, RING_CONTACT_R=1.05;
+const SPAWN_R=25.0;      /* r-progress range: threats travel SPAWN_R -> CONTACT_R */
+const RING_R=24.0, RING_CONTACT_R=1.05;   /* world spawn ring radius (was 4.60) */
+const THREAT_SCALE_BASE=0.165, THREAT_SCALE=0.32;  /* threat render scale (was 0.165) */
+const THREAT_HIT_R=0.5*(THREAT_SCALE/THREAT_SCALE_BASE);
 function threatAnchors(th){
   if(th.sx===undefined){
     const a=(th.ang!=null)?th.ang:(th.lx*Math.PI);
     th.ang=a;
     th.sx=Math.sin(a)*RING_R;
     th.sz=Math.cos(a)*RING_R;
-    th.sy=0.55+Math.abs(th.ly)*0.95;
+    th.sy=2.6+Math.abs(th.ly)*3.4;
     th.cx=Math.sin(a)*RING_CONTACT_R;
     th.cz=Math.cos(a)*RING_CONTACT_R;
     th.cy=0.74+th.ly*0.20;
@@ -143,7 +145,7 @@ function spawnThreat(){
     id:RNG().toString(36).slice(2,8),hpKind:hacker?"hacker":"virus",
     hp,maxHp:hp,dps, lx:lx, ly:RNG()*2-1,
     r:SPAWN_R, wx:0,wy:0.9,wz:1.1, x:0,y:0,
-    phase:"approach", hitT:0, dieT:0, spd:1.10+0.07*Math.min(12,w-1),
+    phase:"approach", hitT:0, dieT:0, spd:4.4+0.34*Math.min(12,w-1),
     spin:RNG()*6.2832,
     spinSpd:(RNG()<0.5?-1:1)*(hacker?0.55:1.15)*(0.8+RNG()*0.6),
     bobPh:RNG()*6.2832,
@@ -170,10 +172,10 @@ function stepThreats(dt){
   if(S.integrity<=0){S.integrity=0;gameOver();return;}
   /* waves: bigger swarm + faster trickle as the wave climbs */
   S.spawnT-=dt;
-  const maxT=4+Math.floor((S.wave-1)*0.9);
+  const maxT=9+Math.floor((S.wave-1)*1.7);
   if(S.spawnT<=0&&S.threats.length<maxT){
     spawnThreat();
-    S.spawnT=Math.max(0.9,3.4-(S.wave-1)*0.28);
+    S.spawnT=Math.max(0.45,2.2-(S.wave-1)*0.20);
   }
   /* integrity slowly regens while the core is safe */
   if(S.threats.length===0&&S.integrity<100)S.integrity=Math.min(100,S.integrity+3*dt);
@@ -550,7 +552,7 @@ const Core3D=(function(){
       const dying=!!e.dying;
       const dp=dying?1-(e.dieT/0.42):0;
       const prog=Math.min(1,Math.max(0,(SPAWN_R-e.r)/(SPAWN_R-CONTACT_R)));
-      const sc=0.165*(e.scale||1)*(0.80+0.20*prog)*(dying?1+0.95*dp:1);
+      const sc=THREAT_SCALE*(e.scale||1)*(0.80+0.20*prog)*(dying?1+0.95*dp:1);
       const spin=e.spin;
       const cc=Math.cos(c+spin), ss=Math.sin(c+spin);
       const fade=dying?Math.min(1,dp*1.05):0;
@@ -1214,7 +1216,7 @@ const FPS=(function(){
       const dying=th.phase==="dying";
       const dp=dying?1-(th.dieT/0.42):0;
       const prog=Math.min(1,Math.max(0,(SPAWN_R-th.r)/(SPAWN_R-CONTACT_R)));
-      const sc=0.165*(th.hpKind==="hacker"?0.9:1.0)*(0.80+0.20*prog)*(dying?1+0.95*dp:1);
+      const sc=THREAT_SCALE*(th.hpKind==="hacker"?0.9:1.0)*(0.80+0.20*prog)*(dying?1+0.95*dp:1);
       const spin=th.spin;
       const cs=Math.cos(spin),ss=Math.sin(spin);
       const fade=dying?Math.min(1,dp*1.05):0;
@@ -1247,7 +1249,7 @@ const FPS=(function(){
       const tca=dx*B.dir[0]+dy*B.dir[1]+dz*B.dir[2];
       if(tca<0.2)continue;
       const d2=dx*dx+dy*dy+dz*dz-tca*tca;
-      const rr=0.5*(th.hpKind==="hacker"?0.95:1.05);
+      const rr=THREAT_HIT_R*(th.hpKind==="hacker"?0.95:1.05);
       if(d2>rr*rr)continue;
       const thit=tca-Math.sqrt(Math.max(0,rr*rr-d2));
       if(thit<bestT){bestT=thit;best=th;}
@@ -1425,7 +1427,7 @@ const FPS=(function(){
       const dying=th.phase==="dying";
       const dp=dying?1-(th.dieT/0.42):0;
       const prog=Math.min(1,Math.max(0,(SPAWN_R-th.r)/(SPAWN_R-CONTACT_R)));
-      const sc=0.165*(th.hpKind==="hacker"?0.9:1.0)*(0.80+0.20*prog)*(dying?1+0.95*dp:1);
+      const sc=THREAT_SCALE*(th.hpKind==="hacker"?0.9:1.0)*(0.80+0.20*prog)*(dying?1+0.95*dp:1);
       draws.push({mesh:th.hpKind==="hacker"?1:0,wx:th.wx,wy:th.wy,wz:th.wz,
         spin:th.spin,s:sc,fade:dying?Math.min(1,dp*1.05):0});
     }
