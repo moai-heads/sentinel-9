@@ -3,3 +3,13 @@ captures/*.mp4
 captures/*.json
 gameplay.mp4
 tmp/
+
+# scratch debug scripts (not shipped)
+tools/iso*.js
+tools/glprobe*.js
+tools/diag.js
+tools/magenta.js
+tools/screendiff.js
+tools/texprobe.js
+tools/shots_screen.js
+tools/playtest_manual.js

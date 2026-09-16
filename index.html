@@ -98,8 +98,28 @@ function fmt(n){
 
 /* ===================== WORLD STATE ===================== */
 /* S is shared with the first-person module (threats live in the 3D scene). */
-const S={integrity:100,kills:0,cleaned:0,wave:1,t:0,spawnT:1.5,threats:[],over:false};
+const S={integrity:100,kills:0,wave:1,t:0,spawnT:1.5,threats:[],over:false,
+  /* wave / intermission phase machine (see updatePhase) */
+  phase:"wave",quota:8,spawned:0,compileT:0,chooseT:0,choices:null};
 let autoplayOn=(params.get("autoplay")==="1");
+/* how long the core monitor spends "compiling" the next upgrade set */
+const COMPILE_TIME=Math.max(0.3,parseFloat(params.get("compile")||"")||7.5);
+/* set true to force the core screen texture to re-upload on the next tick */
+let SCREEN_REFRESH=true;
+
+/* ---------- permanent upgrades (picked on the core monitor) ---------- */
+const UPG={dmg:0,rate:0,speed:0,armor:0,turret:0,spread:0,crit:0};
+const UPGRADE_POOL=[
+  {id:"dmg",   name:"OVERCHARGE",     desc:"+30% weapon damage",              apply(){UPG.dmg++;}},
+  {id:"rate",  name:"RAPID CYCLER",   desc:"+18% fire rate",                  apply(){UPG.rate++;}},
+  {id:"turret",name:"CORE TURRET +",  desc:"+35% core turret damage",         apply(){UPG.turret++;}},
+  {id:"speed", name:"SERVO LEGS",     desc:"+14% move speed",                 apply(){UPG.speed++;}},
+  {id:"armor", name:"HARDENED SHELL", desc:"-12% damage taken",               apply(){UPG.armor++;}},
+  {id:"spread",name:"SPLIT BARREL",   desc:"shots ricochet to 1 more threat", apply(){UPG.spread++;}},
+  {id:"crit",  name:"TARGETING AI",   desc:"+12% crit chance (2.5x)",         apply(){UPG.crit++;}},
+  {id:"repair",name:"NANO REPAIR",    desc:"restore 30 integrity now",        apply(){S.integrity=Math.min(100,S.integrity+30);}}
+];
+function upgArmorMult(){return 1-Math.min(0.6,0.12*UPG.armor);}
 
 /* ===================== THREATS ===================== */
 /* Threats live in the 3D scene: r is a WORLD radius from the core.
@@ -137,15 +157,15 @@ function syncThreatScreen(th){
 function spawnThreat(){
   const w=S.wave;
   const hacker=RNG()<0.4;
-  const hp=(22*Math.pow(1.48,w-1))*(hacker?1.7:1);
-  const dps=(1.4*Math.pow(1.32,w-1))*(hacker?1.35:1);
+  const hp=(22*Math.pow(1.34,w-1))*(hacker?1.7:1);
+  const dps=(1.4*Math.pow(1.26,w-1))*(hacker?1.35:1);
   let lx=RNG()*2-1;
   lx=Math.sign(lx||1)*(0.30+0.70*Math.abs(lx));
   const th={
     id:RNG().toString(36).slice(2,8),hpKind:hacker?"hacker":"virus",
     hp,maxHp:hp,dps, lx:lx, ly:RNG()*2-1,
     r:SPAWN_R, wx:0,wy:0.9,wz:1.1, x:0,y:0,
-    phase:"approach", hitT:0, dieT:0, spd:4.4+0.34*Math.min(12,w-1),
+    phase:"approach", hitT:0, dieT:0, spd:4.4+0.30*Math.min(12,w-1),
     spin:RNG()*6.2832,
     spinSpd:(RNG()<0.5?-1:1)*(hacker?0.55:1.15)*(0.8+RNG()*0.6),
     bobPh:RNG()*6.2832,
@@ -164,21 +184,26 @@ function stepThreats(dt){
     }else{
       th.hitT-=dt;
       if(th.hitT<=0){impact(th,true);th.hitT=0.42+0.06*RNG();}
-      S.integrity-=th.dps*dt;
+      S.integrity-=th.dps*dt*upgArmorMult();
     }
     threatWorld(th); syncThreatScreen(th);
   }
   S.threats=S.threats.filter(t=>!(t.phase==="dying"&&t.dieT<=0));
   if(S.integrity<=0){S.integrity=0;gameOver();return;}
-  /* waves: bigger swarm + faster trickle as the wave climbs */
-  S.spawnT-=dt;
-  const maxT=9+Math.floor((S.wave-1)*1.7);
-  if(S.spawnT<=0&&S.threats.length<maxT){
-    spawnThreat();
-    S.spawnT=Math.max(0.45,2.2-(S.wave-1)*0.20);
+  /* spawner: each wave has a finite quota of threats to throw at the core */
+  if(S.phase==="wave"){
+    S.spawnT-=dt;
+    const remaining=S.quota-S.spawned;
+    const maxT=Math.min(remaining,8+Math.floor((S.wave-1)*1.4));
+    if(S.spawnT<=0&&remaining>0&&S.threats.length<maxT){
+      spawnThreat();
+      S.spawned++;
+      S.spawnT=Math.max(0.45,2.2-(S.wave-1)*0.20);
+    }
   }
-  /* integrity slowly regens while the core is safe */
-  if(S.threats.length===0&&S.integrity<100)S.integrity=Math.min(100,S.integrity+3*dt);
+  /* integrity regens whenever the core is not under attack */
+  const liveN=S.threats.reduce((n,t)=>n+(t.phase!=="dying"?1:0),0);
+  if(liveN===0&&S.integrity<100)S.integrity=Math.min(100,S.integrity+(S.phase==="wave"?2.5:8)*dt);
 }
 
 /* ===================== WEAPONS (core auto-fire turret) ===================== */
@@ -189,9 +214,9 @@ const WEAPONS=[
 ];
 function weaponLv(w){return 1;}
 function overMult(){return 1;}
-function coolMult(){return 1;}
+function coolMult(){return 1+0.18*UPG.rate;}
 function weaponRate(w){return w.rate;}
-function weaponDmg(w){return w.dmg;}
+function weaponDmg(w){return w.dmg*(1+0.35*UPG.turret);}
 function totalWeaponDps(){let d=0;for(const w of WEAPONS)d+=weaponDmg(w)/weaponRate(w);return d;}
 function threatDps(){return totalWeaponDps();}
 
@@ -220,18 +245,53 @@ function stepWeapons(dt){
   }
 }
 
-/* ===================== SCORE / WAVES ===================== */
-function addClean(pct){
-  S.cleaned+=pct;
-  if(S.cleaned>=100){
-    S.cleaned=0;S.wave++;
-    showOverlay("WAVE CLEARED","The swarm adapts. Threats hit harder now.",
-      "WAVE "+S.wave+" INBOUND",true,2600);
+/* ===================== WAVE / INTERMISSION PHASE MACHINE =====================
+   A wave is a finite quota of threats. When the quota is spent and every threat
+   is destroyed the core enters COMPILE: the monitor shows a progress bar that
+   fills slowly. When it fills, three upgrades are offered ON THE MONITOR; the
+   player presses 1/2/3 to install one, and that immediately starts the next
+   wave. */
+function beginCompile(){
+  S.phase="compile";S.compileT=0;S.chooseT=0;S.choices=null;
+  SCREEN_REFRESH=true;
+}
+function beginChoose(){
+  S.phase="choose";S.choices=rollUpgrades(3);S.chooseT=0;
+  SCREEN_REFRESH=true;
+}
+function rollUpgrades(n){
+  const pool=UPGRADE_POOL.slice(),out=[];
+  while(out.length<n&&pool.length){
+    out.push(pool.splice((RNG()*pool.length)|0,1)[0]);
+  }
+  return out;
+}
+function pickUpgrade(idx){
+  if(S.phase!=="choose"||!S.choices)return null;
+  const c=S.choices[idx];if(!c)return null;
+  c.apply();
+  S.wave++;
+  S.quota=8+3*(S.wave-1);
+  S.spawned=0;S.spawnT=2.0;
+  S.phase="wave";S.choices=null;S.compileT=0;S.chooseT=0;
+  SCREEN_REFRESH=true;
+  return c;
+}
+function updatePhase(dt){
+  if(S.over)return;
+  if(S.phase==="wave"){
+    const live=S.threats.reduce((n,t)=>n+(t.phase!=="dying"?1:0),0);
+    if(S.spawned>=S.quota&&live===0)beginCompile();
+  }else if(S.phase==="compile"){
+    S.compileT+=dt;
+    if(S.compileT>=COMPILE_TIME)beginChoose();
+  }else if(S.phase==="choose"){
+    S.chooseT+=dt;
+    if(autoplayOn&&S.chooseT>1.6)pickUpgrade((RNG()*S.choices.length)|0);
   }
 }
 function neutralized(th){
   S.kills++;
-  addClean(th.hpKind==="hacker"?2.2:1.6);
 }
 
 /* ===================== FX (kept lightweight; particles are 2D, HUD-side) ===================== */
@@ -287,8 +347,11 @@ function gameOver(){
     "WAVE "+S.wave+"  \u00b7  "+S.kills+" THREATS NEUTRALIZED");
 }
 function redeploy(){
-  S.integrity=100;S.kills=0;S.cleaned=0;S.wave=1;S.t=0;S.spawnT=1.5;S.threats=[];S.over=false;
+  S.integrity=100;S.kills=0;S.wave=1;S.t=0;S.spawnT=1.5;S.threats=[];S.over=false;
+  S.phase="wave";S.quota=8;S.spawned=0;S.compileT=0;S.chooseT=0;S.choices=null;
+  for(const k in UPG)UPG[k]=0;
   TRACERS=[];PFX=[];DMG=[];shieldTier=-1;breachT=0;shakeT=0;
+  SCREEN_REFRESH=true;
   hideOverlay();
 }
 document.getElementById("ovBtn").addEventListener("click",redeploy);
@@ -694,7 +757,7 @@ const Core3D=(function(){
 /* ===================== WEBGL WORLD RENDERER ===================== */
 const GLWorld=(function(){
   const cv=document.getElementById("glCanvas");
-  const noop={ok:false,resize:()=>{},draw:()=>{},project:()=>({x:0,y:0,vis:false,k:0}),setWorld:()=>{},setEnemyMeshes:()=>{},_debug:()=>({})};
+  const noop={ok:false,resize:()=>{},draw:()=>{},project:()=>({x:0,y:0,vis:false,k:0}),setWorld:()=>{},setEnemyMeshes:()=>{},updateScreen:()=>{},_debug:()=>({})};
   if(!cv)return noop;
   let gl=null;
   try{ gl=cv.getContext("webgl",{antialias:true,alpha:false,depth:true,powerPreference:"high-performance"})
@@ -721,12 +784,14 @@ const GLWorld=(function(){
   const FS=[
     "precision highp float;",
     "varying vec3 vCol;varying vec3 vNrm;varying vec2 vUV;varying float vEm;varying float vTile;varying vec3 vWPos;",
-    "uniform vec3 uLight;uniform vec3 uFogCol;uniform vec3 uCam;uniform sampler2D uDither;uniform sampler2D uAtlas;",
-    "uniform float uAtlasCols;uniform float uTexGain;uniform float uFade;",
+    "uniform vec3 uLight;uniform vec3 uFogCol;uniform vec3 uCam;uniform sampler2D uDither;uniform sampler2D uAtlas;uniform sampler2D uScreen;",
+    "uniform float uAtlasCols;uniform float uTexGain;uniform float uFade;uniform float uDbg;",
     "void main(){",
     "  vec3 N=normalize(vNrm);",
     "  vec3 albedo=vCol;",
-    "  if(vTile>=0.0){",
+    "  if(vTile<-1.5){",
+    "    albedo=texture2D(uScreen,vec2(vUV.x,1.0-vUV.y)).rgb;",
+    "  } else if(vTile>=0.0){",
     "    vec2 tuv=fract(vUV);",
     "    float col=mod(vTile,uAtlasCols);",
     "    float row=floor(vTile/uAtlasCols);",
@@ -742,13 +807,15 @@ const GLWorld=(function(){
     "  float d=texture2D(uDither,gl_FragCoord.xy/4.0).r;",
     "  float levels=31.0;",
     "  col=floor(col*levels+d)/levels;",
+    "  if(uDbg>0.5){","    if(uDbg<1.5)gl_FragColor=vec4(vec3(clamp(vTile*0.25+0.5,0.0,1.0)),1.0);","    else if(uDbg<2.5)gl_FragColor=vec4(vUV,0.0,1.0);","    else if(uDbg<3.5)gl_FragColor=vec4(abs(vNrm),1.0);","    else if(uDbg<4.5)gl_FragColor=vec4(vCol*0.5,1.0);","    else if(uDbg<4.5)gl_FragColor=vec4(vec3(vEm),1.0);","    else gl_FragColor=vec4(vec3(clamp(vTile*0.5+0.5,0.0,1.0),clamp(vTile*0.2+0.5,0.0,1.0),clamp(-vTile*0.5+0.5,0.0,1.0)),1.0);","    return;}",
     "  gl_FragColor=vec4(col,1.0);",
     "}"
   ].join("\n");
 
   /* ---------- all GPU handles live here so they can be rebuilt ---------- */
   let prog=null, A={}, U={};
-  let ditherTex=null, atlasTex=null;
+  let ditherTex=null, atlasTex=null, screenTex=null, screenTexW=0, screenTexH=0, screenUploads=0;
+  let DBG_TILE=0;try{if(typeof location!=='undefined'){const m=/dbgtile=(\d)/.exec(location.search);if(m)DBG_TILE=+m[1];else if(/dbgtile/.test(location.search))DBG_TILE=1;}}catch(e){}
   let worldMesh=null, meshV=null, meshH=null;
   let tracerBuf=null, tracerArr=new Float32Array(6*12);
   let lastVP=null, camPos=[0,0,0], ctxLost=false, frames=0, lastEnemies=0;
@@ -777,6 +844,10 @@ const GLWorld=(function(){
 
   /* (re)build the program, uniforms, attributes and flat textures */
   function initGL(){
+    /* A (re)initialised context invalidates every previous GPU handle, so drop
+       them here before rebuilding — otherwise makeScreenTex/rebuildAtlas would
+       "reuse" stale texture names and sample black. */
+    ditherTex=null;atlasTex=null;screenTex=null;
     const vs=sh(gl.VERTEX_SHADER,VS), fs=sh(gl.FRAGMENT_SHADER,FS);
     if(!vs||!fs)return false;
     prog=gl.createProgram();gl.attachShader(prog,vs);gl.attachShader(prog,fs);gl.linkProgram(prog);
@@ -785,10 +856,37 @@ const GLWorld=(function(){
     A={pos:gl.getAttribLocation(prog,"aPos"),nrm:gl.getAttribLocation(prog,"aNrm"),col:gl.getAttribLocation(prog,"aCol"),
        uv:gl.getAttribLocation(prog,"aUV"),em:gl.getAttribLocation(prog,"aEm"),tile:gl.getAttribLocation(prog,"aTile")};
     U={};
-    ["uVP","uModel","uNrm","uCam","uLight","uFogCol","uDither","uAtlas","uAtlasCols","uTexGain","uFade"].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+    ["uVP","uModel","uNrm","uCam","uLight","uFogCol","uDither","uAtlas","uScreen","uAtlasCols","uTexGain","uFade","uDbg"].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
     makeDither();
+    makeScreenTex();
     tracerBuf=gl.createBuffer();
     return true;
+  }
+
+  /* 1x1 black placeholder so uScreen is never bound to a null texture */
+  function makeScreenTex(){
+    if(!screenTex)screenTex=gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D,screenTex);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([0,0,0,255]));
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  }
+
+  /* upload the live core-monitor canvas into the screen texture */
+  function updateScreen(cnv){
+    if(ctxLost||!gl||!prog||!cnv)return;
+    if(!screenTex)makeScreenTex();
+    gl.bindTexture(gl.TEXTURE_2D,screenTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,cnv);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    screenTexW=cnv.width;screenTexH=cnv.height;screenUploads++;
+    SCREEN_REFRESH=false;
   }
 
   /* ---------- texture atlas ---------- */
@@ -827,7 +925,7 @@ const GLWorld=(function(){
   function buildMesh(faces){
     const arr=[];
     for(const f of faces){
-      const tile=f.tex?texId(f.tex):-1;
+      const tile=f.tex?(f.tex==="__screen__"?-2:texId(f.tex)):-1;
       const col=f.tex?[1,1,1]:faceColor(f);
       const em=f.em||0;
       const uv=f.tex?(f.uv||DEFAULT_UV):DEFAULT_UV;
@@ -842,7 +940,7 @@ const GLWorld=(function(){
     const buf=gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER,buf);
     gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(arr),gl.STATIC_DRAW);
-    return {buf:buf,count:arr.length/13};
+    return {buf:buf,count:arr.length/13,data:arr};
   }
   function bindMesh(m){
     gl.bindBuffer(gl.ARRAY_BUFFER,m.buf);
@@ -903,11 +1001,12 @@ const GLWorld=(function(){
     gl.uniform3fv(U.uCam,camPos);
     gl.uniform3f(U.uLight,-0.40,0.82,0.46);
     gl.uniform3f(U.uFogCol,0.020,0.030,0.058);
-    gl.uniform1f(U.uAtlasCols,ACOLS);
+    gl.uniform1f(U.uAtlasCols,ACOLS);gl.uniform1f(U.uDbg,DBG_TILE);
     gl.uniform1f(U.uTexGain,2.3);
 
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,atlasTex);gl.uniform1i(U.uAtlas,0);
     gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,ditherTex);gl.uniform1i(U.uDither,1);
+    gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,screenTex);gl.uniform1i(U.uScreen,2);
     gl.activeTexture(gl.TEXTURE0);
 
     if(worldMesh){gl.uniformMatrix4fv(U.uModel,false,I4);gl.uniformMatrix3fv(U.uNrm,false,I3);gl.uniform1f(U.uFade,0);
@@ -954,6 +1053,7 @@ const GLWorld=(function(){
   cv.addEventListener("webglcontextlost",e=>{ctxLost=true;e.preventDefault();},false);
   cv.addEventListener("webglcontextrestored",()=>{
     ctxLost=false;
+    SCREEN_REFRESH=true;
     if(!initGL())return;
     if(lastWorldList)worldMesh=buildMesh(lastWorldList);
     if(lastVList)meshV=buildMesh(lastVList);
@@ -963,9 +1063,113 @@ const GLWorld=(function(){
 
   initGL();
 
-  return {ok:true,resize:resize,draw:draw,project:project,setWorld:setWorld,setEnemyMeshes:setEnemyMeshes,
-    _debug:()=>({ctxLost:ctxLost,worldCount:worldMesh?worldMesh.count:0,meshV:meshV?meshV.count:0,meshH:meshH?meshH.count:0,texs:texList.length,atlas:!!atlasTex,hasProg:!!prog,frames:frames,lastEnemies:lastEnemies})};
+  function readScreenTex(){if(!screenTex)return null;const fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,screenTex,0);const w=screenTexW||1,h=screenTexH||1,px=new Uint8Array(w*h*4);gl.readPixels(0,0,w,h,gl.RGBA,gl.UNSIGNED_BYTE,px);gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.deleteFramebuffer(fb);let green=0,nonblack=0;for(let i=0;i<px.length;i+=4){const r=px[i],g=px[i+1],b=px[i+2];if(r+g+b>40)nonblack++;if(g>90&&g>r+30&&g>b+20)green++;}return{w:w,h:h,green:green,nonblack:nonblack,uploads:screenUploads};}
+  return {ok:true,resize:resize,draw:draw,project:project,setWorld:setWorld,setEnemyMeshes:setEnemyMeshes,updateScreen:updateScreen,readScreenTex:readScreenTex,forceUpload:()=>{SCREEN_REFRESH=true;},_gl:()=>gl,_screenTex:()=>screenTex,_atlasTex:()=>atlasTex,setDbg:n=>{DBG_TILE=n;},
+    _debug:()=>({ctxLost:ctxLost,worldCount:worldMesh?worldMesh.count:0,meshV:meshV?meshV.count:0,meshH:meshH?meshH.count:0,texs:texList.length,atlas:!!atlasTex,hasProg:!!prog,frames:frames,lastEnemies:lastEnemies,screenFaces:(lastWorldList||[]).filter(f=>f.tex==="__screen__").length,screenTex:!!screenTex,screenTexW:screenTexW,screenTexH:screenTexH,screenUploads:screenUploads,uScreen:U.uScreen?1:0,A:A,texDims:(texList||[]).map(c=>[c.width,c.height]),tileHist2:(function(){const h={};for(const f of (lastWorldList||[])){const t=f.tex?(f.tex==="__screen__"?-2:texId(f.tex)):-1;h[t]=(h[t]||0)+(f.p.length===4?6:3);}return h;})(),screenFaceV:(function(){let n=0;for(const f of (lastWorldList||[]))if(f.tex==="__screen__")n+=f.p.length;return n;})(),bigFaces:(lastWorldList||[]).filter(f=>{let mx=0;for(const v of f.p)for(let i=0;i<3;i++)mx=Math.max(mx,Math.abs(v[i]));return mx>6;}).slice(0,5).map(f=>({tex:String(f.tex),p:f.p})),
+    tileHist:(()=>{const h={};if(worldMesh&&worldMesh.data){const d=worldMesh.data;for(let i=12;i<d.length;i+=13){h[d[i]]=(h[d[i]]||0)+1;}}return h;})(),
+    nrmHist:(()=>{const h={};if(worldMesh&&worldMesh.data){const d=worldMesh.data;for(let k=0;k<3;k++){h[k]=(h[k]||0)+1;}return h;}return h;})()})};
 })();
+/* ===================== CORE MONITOR SCREEN (in-world CRT) =====================
+   A black screen with green text, drawn to a canvas that GLWorld maps onto the
+   computer's monitor inside the 3D city. It narrates the wave, shows the
+   compile progress bar, and presents the three upgrade choices. */
+const Screen=(function(){
+  const W=256,H=160;
+  const cv=document.createElement("canvas");cv.width=W;cv.height=H;
+  const g=cv.getContext("2d");
+  const G="#3dff9c", GD="#1c8f57", GX="#0a3d24";
+  let lastKey="";
+
+  function bg(){
+    g.fillStyle="#000503";g.fillRect(0,0,W,H);
+    g.fillStyle="rgba(61,255,156,0.045)";
+    for(let y=0;y<H;y+=2)g.fillRect(0,y,W,1);
+  }
+  function txt(t,x,y,col,size,bold){
+    g.fillStyle=col||G;
+    g.font=(bold?"bold ":"")+(size||10)+"px ui-monospace,Menlo,Consolas,monospace";
+    g.textBaseline="top";g.fillText(t,x,y);
+  }
+  function ctxt(t,y,col,size,bold){
+    g.font=(bold?"bold ":"")+(size||10)+"px ui-monospace,Menlo,Consolas,monospace";
+    txt(t,Math.round((W-g.measureText(t).width)/2),y,col,size,bold);
+  }
+  function bar(x,y,w,h,pct){
+    g.strokeStyle=GD;g.lineWidth=1;g.strokeRect(x+0.5,y+0.5,w-1,h-1);
+    g.fillStyle=GX;g.fillRect(x+2,y+2,w-4,h-4);
+    const fw=Math.max(0,Math.round((w-4)*Math.max(0,Math.min(1,pct))));
+    g.fillStyle=G;g.fillRect(x+2,y+2,fw,h-4);
+  }
+  function header(right){
+    txt("SENTINEL-9",7,4,G,10,true);
+    g.font="9px ui-monospace,Menlo,Consolas,monospace";
+    const bw=g.measureText("SENTINEL-9").width;
+    txt("// NET CLEANSE",7+Math.max(bw,62),4,GD,9,false);
+    if(right){g.font="9px ui-monospace,Menlo,Consolas,monospace";
+      txt(right,W-7-g.measureText(right).width,4,GD,9,false);}
+    g.strokeStyle=GX;g.beginPath();g.moveTo(0,17.5);g.lineTo(W,17.5);g.stroke();
+  }
+  function render(){
+    bg();
+    const blink=((S.t*2)|0)%2===0;
+    if(S.phase==="choose"){
+      header("UPGRADE");
+      ctxt("UPGRADE AVAILABLE",24,G,11,true);
+      const cs=S.choices||[];
+      const y0=46,dy=34;
+      for(let i=0;i<cs.length;i++){
+        const y=y0+i*dy;
+        txt("["+(i+1)+"]",12,y,G,11,true);
+        txt(cs[i].name,44,y,G,11,true);
+        txt(cs[i].desc,44,y+13,GD,9,false);
+      }
+      const p=S.chooseT||0;
+      ctxt("PRESS 1 / 2 / 3 TO INSTALL"+(((p*2)|0)%2?"_":""),H-16,G,9,true);
+    }else if(S.phase==="compile"){
+      header("PATCHING");
+      ctxt("WAVE "+S.wave+" CLEARED",26,G,11,true);
+      ctxt("COMPILING UPGRADE MODULE",44,GD,9,false);
+      const pct=Math.min(1,S.compileT/COMPILE_TIME);
+      bar(16,60,W-32,16,pct);
+      ctxt(Math.round(pct*100)+"%",82,G,10,true);
+      const dots="...".slice(0,1+(((S.t*2)|0)%3));
+      ctxt("DECRYPTING PATCH DATABASE"+dots,104,GD,9,false);
+      ctxt("STAND BY",H-16,GD,9,false);
+    }else{
+      header("WAVE "+S.wave);
+      ctxt("CONTAINMENT ACTIVE",26,G,11,true);
+      const live=S.threats.reduce((n,t)=>n+(t.phase!=="dying"?1:0),0);
+      const rows=[
+        ["THREATS ACTIVE",String(live)],
+        ["SPAWNED",S.spawned+"/"+S.quota],
+        ["INTEGRITY",Math.max(0,Math.round(S.integrity))+"%"],
+        ["NEUTRALIZED",String(S.kills)]
+      ];
+      for(let i=0;i<rows.length;i++){
+        const y=48+i*15;
+        txt(rows[i][0],14,y,GD,9,false);
+        g.font="bold 9px ui-monospace,Menlo,Consolas,monospace";
+        txt(rows[i][1],W-14-g.measureText(rows[i][1]).width,y,G,9,true);
+      }
+      const prog=S.quota?Math.min(1,S.spawned/S.quota):0;
+      txt("WAVE PROGRESS",14,H-40,GX,8,false);
+      bar(14,H-26,W-28,8,prog);
+      if(blink){g.fillStyle=G;g.fillRect(W-26,6,6,10);}
+    }
+  }
+  function tick(){
+    const key=S.phase+"|"+S.wave+"|"+S.threats.length+"|"+Math.round(S.integrity)+"|"+S.spawned+"|"+
+      Math.round((S.phase==="compile"?S.compileT:(S.phase==="choose"?S.chooseT:0))*10)+"|"+
+      (S.choices?S.choices.map(c=>c.id).join(","):"")+"|"+((S.t*2)|0);
+    if(!SCREEN_REFRESH&&key===lastKey)return;
+    lastKey=key;
+    render();
+    try{GLWorld.updateScreen(cv);}catch(e){}
+  }
+  return {tick:tick,canvas:cv,render:render};
+})();
+
+
 /* ===================== FIRST-PERSON MODE ===================== */
 const FPS=(function(){
   const cv=document.getElementById("fpsCanvas");
@@ -1172,7 +1376,8 @@ const FPS=(function(){
 
   function buildRig(list){
     addBox(list,0,0.62,0,1.5,1.05,0.9,[26,66,80],null);
-    list.push(face([[-0.62,0.20,0.452],[0.62,0.20,0.452],[0.62,1.05,0.452],[-0.62,1.05,0.452]],[0,0,1],[60,255,170],{em:0.85}));
+    /* the monitor shows a live black-and-green CRT texture (see the Screen module) */
+    if(location.search.indexOf("noscreen")<0)list.push(face([[-0.62,0.20,0.452],[0.62,0.20,0.452],[0.62,1.05,0.452],[-0.62,1.05,0.452]],[0,0,1],[255,255,255],{tex:"__screen__",em:0.95}));
     addBox(list,0,0.16,-0.05,0.24,0.12,0.22,[18,48,58],null);
     addBox(list,0,0.06,0.05,0.72,0.07,0.5,[22,58,70],null);
     addBox(list,0,0.66,-1.02,0.56,1.32,0.52,[20,54,66],null);
@@ -1240,7 +1445,7 @@ const FPS=(function(){
 
   /* ---------- weapons ---------- */
   function totalWeaponLevels(){let s=0;for(const w of WEAPONS)s+=weaponLv(w);return s;}
-  function playerDmg(){return 17*(1+0.16*totalWeaponLevels())*overMult();}
+  function playerDmg(mult){return 17*(1+0.16*totalWeaponLevels())*overMult()*(1+0.30*UPG.dmg)*(mult||1);}
 
   function hitscan(){
     const B=basis();
@@ -1258,8 +1463,25 @@ const FPS=(function(){
     }
     return{best:best,B:B,t:bestT};
   }
+  /* up to n extra live threats closest to the aim ray (SPLIT BARREL upgrade) */
+  function nearbyThreats(B,primary,n){
+    if(n<=0)return [];
+    const cand=[];
+    for(const th of S.threats){
+      if(th.phase==="dying"||th===primary)continue;
+      const dx=th.wx-P.x,dy=th.wy-P.y,dz=th.wz-P.z;
+      const tca=dx*B.dir[0]+dy*B.dir[1]+dz*B.dir[2];
+      if(tca<0.3)continue;
+      const d2=dx*dx+dy*dy+dz*dz-tca*tca;
+      if(d2>3.2)continue;
+      cand.push({th:th,d2:d2});
+    }
+    cand.sort((a,b)=>a.d2-b.d2);
+    return cand.slice(0,n).map(o=>o.th);
+  }
   function fire(){
     if(!active)return;
+    if(S.phase==="choose")return;
     if(playerCd>0)return;
     playerCd=PLAYER_RATE/coolMult();
     const hs=hitscan(), B=hs.B;
@@ -1267,16 +1489,29 @@ const FPS=(function(){
       P.x+B.dir[0]*0.42+B.right[0]*0.20-B.up[0]*0.14,
       P.y+B.dir[1]*0.42+B.right[1]*0.20-B.up[1]*0.14,
       P.z+B.dir[2]*0.42+B.right[2]*0.20-B.up[2]*0.14];
+    const shot=(tx,ty,tz,scale,crit)=>{
+      ftracers.push({ax:muzzle[0],ay:muzzle[1],az:muzzle[2],bx:tx,by:ty,bz:tz,life:0.10,max:0.10});
+      if(ftracers.length>40)ftracers.splice(0,ftracers.length-40);
+      return playerDmg(crit?2.5:1)*scale;
+    };
     let end;
     if(hs.best)end=[hs.best.wx,hs.best.wy,hs.best.wz];
     else end=[P.x+B.dir[0]*16,P.y+B.dir[1]*16,P.z+B.dir[2]*16];
-    ftracers.push({ax:muzzle[0],ay:muzzle[1],az:muzzle[2],bx:end[0],by:end[1],bz:end[2],life:0.10,max:0.10});
-    if(ftracers.length>40)ftracers.splice(0,ftracers.length-40);
     if(hs.best){
-      damageThreat(hs.best,playerDmg());
+      const crit=RNG()<0.12*UPG.crit;
+      const dmg=shot(end[0],end[1],end[2],1,crit);
+      damageThreat(hs.best,dmg);
       hitFlash=0.10;
-      dmgList.push({x:hs.best.wx,y:hs.best.wy+0.42,z:hs.best.wz,txt:String(Math.round(playerDmg())),life:0.6,max:0.6});
+      dmgList.push({x:hs.best.wx,y:hs.best.wy+0.42,z:hs.best.wz,
+        txt:String(Math.round(dmg))+(crit?"!":""),life:0.6,max:0.6});
       if(dmgList.length>30)dmgList.splice(0,dmgList.length-30);
+      /* SPLIT BARREL: ricochet into extra nearby threats */
+      for(const th2 of nearbyThreats(B,hs.best,UPG.spread)){
+        const d2=shot(th2.wx,th2.wy,th2.wz,0.6,false);
+        damageThreat(th2,d2);
+      }
+    }else{
+      shot(end[0],end[1],end[2],1,false);
     }
     recoil=1;
   }
@@ -1296,7 +1531,7 @@ const FPS=(function(){
     if(autoplayOn){
       autoAimMove(dt);
     }else{
-      const sp=(keys["ShiftLeft"]||keys["ShiftRight"])?7.2:4.3;
+      const sp=((keys["ShiftLeft"]||keys["ShiftRight"])?7.2:4.3)*(1+0.14*UPG.speed);
       let mvF=(keys["KeyW"]?1:0)-(keys["KeyS"]?1:0);
       let mvR=(keys["KeyD"]?1:0)-(keys["KeyA"]?1:0);
       const cy=Math.cos(P.yaw),sy=Math.sin(P.yaw);
@@ -1548,13 +1783,30 @@ const FPS=(function(){
     g.fillText("THREATS "+S.threats.length+"   DPS "+fmt(threatDps()),10,26);
     /* top-right */
     g.fillStyle="#3dffa2";g.font="9px ui-monospace,monospace";
-    const t1="CLEANED "+Math.min(100,S.cleaned).toFixed(0)+"%";
+    const t1="SPAWNED "+S.spawned+"/"+S.quota;
     g.fillText(t1,W-10-g.measureText(t1).width,14);
     const t2="KILLS "+S.kills;
     g.fillText(t2,W-10-g.measureText(t2).width,26);
-    /* hint */
+    /* phase banner + hint */
+    let hint;
+    if(S.phase==="choose"){
+      g.fillStyle="#3dffa2";g.font="bold 10px ui-monospace,monospace";
+      const head="UPGRADE READY  \u2014  READ THE CORE SCREEN";
+      g.fillText(head,(W-g.measureText(head).width)/2,42);
+      g.font="9px ui-monospace,monospace";g.fillStyle="#dff8ff";
+      const opts=(S.choices||[]).map((c,i)=>"["+(i+1)+"] "+c.name).join("   ");
+      g.fillText(opts,(W-g.measureText(opts).width)/2,58);
+      hint="PRESS 1 / 2 / 3 TO INSTALL AN UPGRADE";
+    }else if(S.phase==="compile"){
+      const pct=Math.min(1,S.compileT/COMPILE_TIME);
+      g.fillStyle="#8fe8ff";g.font="bold 9px ui-monospace,monospace";
+      const t="COMPILING UPGRADE MODULE "+Math.round(pct*100)+"%";
+      g.fillText(t,(W-g.measureText(t).width)/2,42);
+      hint="STAND BY  \u2014  NEXT WAVE INBOUND";
+    }else{
+      hint=locked?"WASD MOVE  \u00b7  MOUSE AIM  \u00b7  CLICK FIRE  \u00b7  ESC RELEASE":"CLICK TO CAPTURE MOUSE  \u00b7  WASD MOVE  \u00b7  SHOOT THE VIRUSES BEFORE THEY REACH THE CORE";
+    }
     g.fillStyle="rgba(140,200,215,.65)";g.font="8px ui-monospace,monospace";
-    const hint=locked?"WASD MOVE  \u00b7  MOUSE AIM  \u00b7  CLICK FIRE  \u00b7  ESC RELEASE":"CLICK TO CAPTURE MOUSE  \u00b7  WASD MOVE  \u00b7  SHOOT THE VIRUSES BEFORE THEY REACH THE CORE";
     g.fillText(hint,(W-g.measureText(hint).width)/2,H-6);
   }
 
@@ -1592,6 +1844,11 @@ const FPS=(function(){
   window.addEventListener("mouseup",()=>{ firing=false; });
   window.addEventListener("keydown",e=>{
     keys[e.code]=true;
+    if(!e.repeat&&S.phase==="choose"){
+      if(e.code==="Digit1"||e.code==="Numpad1"){pickUpgrade(0);}
+      else if(e.code==="Digit2"||e.code==="Numpad2"){pickUpgrade(1);}
+      else if(e.code==="Digit3"||e.code==="Numpad3"){pickUpgrade(2);}
+    }
     if((e.code==="KeyF"||e.code==="Escape")&&!e.repeat){ if(document.pointerLockElement)document.exitPointerLock(); }
     if(active&&["KeyW","KeyA","KeyS","KeyD","Space","ShiftLeft","ShiftRight","ArrowUp","ArrowDown"].indexOf(e.code)>=0)e.preventDefault();
   });
@@ -1614,6 +1871,7 @@ function tick(dt){
   stepThreats(dt);
   stepWeapons(dt);
   FPS.update(dt);
+  updatePhase(dt);
   for(const t of TRACERS)t.life-=dt;
   TRACERS=TRACERS.filter(t=>t.life>0);
 }
@@ -1622,6 +1880,7 @@ function frame(now){
   tick(dt);
   updateCoreFx(dt);
   FPS.render(dt);
+  Screen.tick();
   requestAnimationFrame(frame);
 }
 
@@ -1637,12 +1896,15 @@ if(params.get("probe")){
   setInterval(()=>{
     let p=document.getElementById("probe");
     if(!p){p=document.createElement("pre");p.id="probe";p.style.cssText="position:fixed;left:-9999px";document.body.appendChild(p);}
-    p.textContent=JSON.stringify({t:+S.t.toFixed(1),integrity:+S.integrity.toFixed(1),kills:S.kills,cleaned:+S.cleaned.toFixed(1),
-      wave:S.wave,threats:S.threats.length,phases:S.threats.map(t=>t.phase),over:S.over,
+    p.textContent=JSON.stringify({t:+S.t.toFixed(1),integrity:+S.integrity.toFixed(1),kills:S.kills,
+      wave:S.wave,phase:S.phase,quota:S.quota,spawned:S.spawned,compileT:+S.compileT.toFixed(1),
+      choices:S.choices?S.choices.map(c=>c.id):null,upg:Object.assign({},UPG),
+      threats:S.threats.length,phases:S.threats.map(t=>t.phase),over:S.over,
       fpsActive:FPS.isActive(),enemies:FPS.enemies,gl:!!(typeof GLWorld!=="undefined"&&GLWorld.ok)});
   },200);
 }
-window.__game={get state(){return S;},spawnThreat,stepThreats,stepWeapons,tick,fps:FPS,redeploy,gameOver,
+window.__game={get state(){return S;},get upg(){return UPG;},spawnThreat,stepThreats,stepWeapons,damageThreat,tick,fps:FPS,redeploy,gameOver,
+  pickUpgrade,beginCompile,beginChoose,rollUpgrades,screen:Screen,
   get glOK(){try{return GLWorld.ok;}catch(e){return false;}}};
 
 </script>
