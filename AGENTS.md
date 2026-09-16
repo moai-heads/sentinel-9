@@ -1,6 +1,6 @@
 # Project instructions
 
-- SENTINEL-9 // NET CLEANSE: a single-file browser idle/defender game.
+- SENTINEL-9 // NET CLEANSE: a single-file, first-person browser city defender.
 - Keep it one file: `index.html`, no build step, no dependencies, no assets.
 - Commit after every completed change, with concise messages (`feat: …`, `fix: …`).
 - Keep generated artifacts (png/mp4 captures) out of `main`; the published page
