@@ -16,6 +16,10 @@ cleanse sectors, and build a self-running defense.
   viruses yourself with WASD + mouse (pointer lock). Your unlocked auto-fire
   weapons keep firing alongside you, so the tower-defense layer stays live while
   you play. Press `F` (or `?fps=1`) to enter; `ESC` / `F` returns to the grid.
+  The first-person level is a **city**: a street grid of blocks with high-rise
+  towers (dense downtown core, lower-rise outskirts), rooftop podiums and aerial
+  beacons on the tallest landmarks, and lamp-lit avenues. The core sits in a
+  central plaza; buildings are solid colliders, so the streets are the arena.
 
 ## Mechanics
 - **Cleanse nodes** — 10 collector tiers (CPU, RAM, GPU, SSD, BUS, COOLANT, QPU,
