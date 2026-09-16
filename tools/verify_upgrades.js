@@ -1,4 +1,4 @@
-// Verify wave -> compile(progress bar) -> choose(3 upgrades) -> pick -> next wave,
+// Verify wave -> choose(3 upgrades) -> pick -> next wave,
 // and capture the in-world monitor + the screen canvas at each phase.
 const { spawn } = require("child_process");
 const fs=require("fs"),http=require("http"),path=require("path");

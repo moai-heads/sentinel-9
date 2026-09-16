@@ -1,5 +1,5 @@
 // Headless verification of the wave -> choose -> next-wave flow
-// and the live core monitor screen. Usage: node tools/playtest_phases.js
+// and the live core monitor screen (no compile intermission). Usage: node tools/playtest_phases.js
 const { spawn } = require("child_process");
 const fs=require("fs"),http=require("http"),path=require("path");
 const ROOT=path.resolve(__dirname,"..");
@@ -37,7 +37,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   // force the wave to complete quickly: spawn the whole quota and kill everything
   out.forced=await ev(`(()=>{const g=window.__game,s=g.state;
     while(s.spawned<s.quota){g.spawnThreat();s.spawned++;}
-    for(const th of s.threats){th.hp=0;}
+    for(const th of s.threats.slice())g.damageThreat(th,1e9);
     return {spawned:s.spawned,quota:s.quota,threats:s.threats.length};})()`);
 
   // let stepThreats run -> all die -> wave ends -> choose immediately (no compile wait)

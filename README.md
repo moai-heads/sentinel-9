@@ -13,10 +13,12 @@ low-poly city; you drop in first-person and shoot them off before they reach it.
   the core and fly inward. On contact they chip **INTEGRITY** continuously.
 - **Your gun** — WASD + mouse look (pointer lock), click/Space to fire, Shift to
   sprint, Esc to release the mouse. Hitscan with tracers, recoil and hit flash.
-- **Core auto-turret** — one built-in turret keeps firing while you reposition, so
-  the core is never completely helpless.
-- **Waves** — neutering threats fills the NET CLEANED meter; at 100% the wave
-  advances and the swarm gets tougher and denser.
+- **Core auto-turret** — the computer starts **OFFLINE**. Clear the first wave and
+  install **CORE TURRET** from the three choices; later turret shots are bright green
+  3D bolts from the computer to the incoming malware.
+- **Waves + upgrades** — clear the finite threat quota, then the computer immediately
+  presents three upgrades on its black/green monitor. Pick one with **1 / 2 / 3**
+  to start the next, tougher wave; there is no compile/intermission wait.
 - **SYSTEM CRASH → REDEPLOY** — if INTEGRITY hits zero the core is overwhelmed and
   you can redeploy a fresh run.
 
@@ -33,6 +35,9 @@ and rebuilds its buffers/shaders/atlas, so it recovers from a GPU reset.
 - `?autoplay=1` — the player runs itself (orbits the core, aims and fires). Good
   for demos/spectating.
 - `?probe=1` — writes live state JSON into the DOM for headless verification.
+
+The core firing path is covered by `tools/verify_turret_shots.js`; the phase and
+monitor flow is covered by `tools/playtest_phases.js` and `tools/verify_upgrades.js`.
 
 ## Repo layout
 - `index.html` — the game (single file).
