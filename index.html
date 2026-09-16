@@ -751,7 +751,7 @@ const GLWorld=(function(){
   let ditherTex=null, atlasTex=null;
   let worldMesh=null, meshV=null, meshH=null;
   let tracerBuf=null, tracerArr=new Float32Array(6*12);
-  let lastVP=null, camPos=[0,0,0], ctxLost=false;
+  let lastVP=null, camPos=[0,0,0], ctxLost=false, frames=0, lastEnemies=0;
 
   const TILE=128, ACOLS=8;
   const I4=new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
@@ -894,6 +894,7 @@ const GLWorld=(function(){
     gl.clearColor(0.020,0.030,0.058,1);
     gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
     if(!prog)return;
+    frames++;
     gl.useProgram(prog);
 
     const VP=mul(persp(72*Math.PI/180,w/h,0.05,120),viewMat(cam.x,cam.y,cam.z,cam.yaw,cam.pitch));
@@ -911,12 +912,13 @@ const GLWorld=(function(){
 
     if(worldMesh){gl.uniformMatrix4fv(U.uModel,false,I4);gl.uniformMatrix3fv(U.uNrm,false,I3);gl.uniform1f(U.uFade,0);
       bindMesh(worldMesh);gl.drawArrays(gl.TRIANGLES,0,worldMesh.count);}
+    lastEnemies=0;
     for(const e of enemies){
       gl.uniformMatrix4fv(U.uModel,false,modelMat(e.wx,e.wy,e.wz,e.spin,e.s));
       gl.uniformMatrix3fv(U.uNrm,false,normMat(e.spin,e.s));
       gl.uniform1f(U.uFade,e.fade||0);
       const mesh=(e.mesh===1)?meshH:meshV;
-      if(mesh){bindMesh(mesh);gl.drawArrays(gl.TRIANGLES,0,mesh.count);}
+      if(mesh){bindMesh(mesh);gl.drawArrays(gl.TRIANGLES,0,mesh.count);lastEnemies++;}
     }
     if(tracers&&tracers.length){
       let k=0;
@@ -962,7 +964,7 @@ const GLWorld=(function(){
   initGL();
 
   return {ok:true,resize:resize,draw:draw,project:project,setWorld:setWorld,setEnemyMeshes:setEnemyMeshes,
-    _debug:()=>({ctxLost:ctxLost,worldCount:worldMesh?worldMesh.count:0,meshV:meshV?meshV.count:0,meshH:meshH?meshH.count:0,texs:texList.length,atlas:!!atlasTex,hasProg:!!prog})};
+    _debug:()=>({ctxLost:ctxLost,worldCount:worldMesh?worldMesh.count:0,meshV:meshV?meshV.count:0,meshH:meshH?meshH.count:0,texs:texList.length,atlas:!!atlasTex,hasProg:!!prog,frames:frames,lastEnemies:lastEnemies})};
 })();
 /* ===================== FIRST-PERSON MODE ===================== */
 const FPS=(function(){
@@ -1637,7 +1639,7 @@ if(params.get("probe")){
     if(!p){p=document.createElement("pre");p.id="probe";p.style.cssText="position:fixed;left:-9999px";document.body.appendChild(p);}
     p.textContent=JSON.stringify({t:+S.t.toFixed(1),integrity:+S.integrity.toFixed(1),kills:S.kills,cleaned:+S.cleaned.toFixed(1),
       wave:S.wave,threats:S.threats.length,phases:S.threats.map(t=>t.phase),over:S.over,
-      fpsActive:FPS.isActive(),enemies:FPS.enemies,gl:!!(window.GLWorld&&GLWorld.ok)});
+      fpsActive:FPS.isActive(),enemies:FPS.enemies,gl:!!(typeof GLWorld!=="undefined"&&GLWorld.ok)});
   },200);
 }
 window.__game={get state(){return S;},spawnThreat,stepThreats,stepWeapons,tick,fps:FPS,redeploy,gameOver,
