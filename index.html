@@ -1165,7 +1165,7 @@ const GLWorld=(function(){
   const FS=[
     "precision mediump float;",
     "varying vec3 vCol;varying vec3 vNrm;varying vec2 vUV;varying float vEm;varying float vTile;varying float vFog;varying vec3 vWPos;",
-    "uniform vec3 uLight;uniform vec3 uFogCol;uniform sampler2D uDither;uniform sampler2D uAtlas;",
+    "precision highp float;\n","uniform vec3 uLight;uniform vec3 uFogCol;uniform highp vec3 uCam;uniform sampler2D uDither;uniform sampler2D uAtlas;",
     "uniform float uAtlasCols;uniform float uTexGain;uniform float uFade;",
     "void main(){",
     "  vec3 N=normalize(vNrm);",
@@ -1179,9 +1179,10 @@ const GLWorld=(function(){
     "    albedo=texture2D(uAtlas,tuv).rgb*uTexGain*vCol;",
     "  }",
     "  float lam=max(dot(N,uLight),0.0);",
-    "  vec3 lit=albedo*(0.55+0.55*lam);",
+    "  vec3 lit=albedo*(0.66+0.55*lam);",
     "  lit=mix(lit,albedo*1.10,vEm);",
-    "  vec3 col=mix(lit,uFogCol,vFog);",
+    "  float fg=clamp((length(vWPos-uCam)-13.0)/70.0,0.0,1.0);",
+    "  vec3 col=mix(lit,uFogCol,fg);",
     "  col=mix(col,uFogCol,uFade);",
     "  float d=texture2D(uDither,gl_FragCoord.xy/4.0).r;",
     "  float levels=31.0;",
@@ -1216,7 +1217,7 @@ const GLWorld=(function(){
   })();
 
   /* ---------- texture atlas ---------- */
-  const TILE=128, ACOLS=4;
+  const TILE=128, ACOLS=8;
   let texList=[], texMap=new Map(), atlasTex=null, atlasRows=1;
   function texId(cnv){
     if(texMap.has(cnv))return texMap.get(cnv);
@@ -1224,7 +1225,7 @@ const GLWorld=(function(){
   }
   function rebuildAtlas(){
     if(!texList.length){atlasRows=1;return;}
-    atlasRows=Math.ceil(texList.length/ACOLS);
+    atlasRows=ACOLS; /* square atlas: shader assumes ACOLS x ACOLS */
     const c=document.createElement("canvas"); c.width=ACOLS*TILE; c.height=atlasRows*TILE;
     const g=c.getContext("2d");
     g.fillStyle="#000";g.fillRect(0,0,c.width,c.height);
@@ -1324,7 +1325,7 @@ const GLWorld=(function(){
     gl.viewport(0,0,w,h);
     gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
     gl.disable(gl.CULL_FACE);
-    gl.clearColor(0.016,0.052,0.068,1);
+    gl.clearColor(0.020,0.030,0.058,1);
     gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
     gl.useProgram(prog);
 
@@ -1333,7 +1334,7 @@ const GLWorld=(function(){
     gl.uniformMatrix4fv(U.uVP,false,VP);
     gl.uniform3fv(U.uCam,camPos);
     gl.uniform3f(U.uLight,-0.40,0.82,0.46);
-    gl.uniform3f(U.uFogCol,0.016,0.052,0.068);
+    gl.uniform3f(U.uFogCol,0.020,0.030,0.058);
     gl.uniform1f(U.uAtlasCols,ACOLS);
     gl.uniform1f(U.uTexGain,2.3);
 
@@ -1427,6 +1428,60 @@ const FPS=(function(){
     noise(g,w,h,50,.25);
   });
 
+  /* ---------- city textures ---------- */
+  const trnd=mulberry32(0xC17A); /* deterministic facade/layout rng */
+  const texRoad=mk(128,128,(g,w,h)=>{
+    g.fillStyle="#0d1216";g.fillRect(0,0,w,h);
+    for(let i=0;i<520;i++){
+      g.fillStyle="rgba(0,0,0,"+(0.08+Math.random()*0.22).toFixed(3)+")";
+      g.fillRect(Math.random()*w|0,Math.random()*h|0,2,2);
+    }
+    g.fillStyle="#262c33";
+    g.fillRect(0,0,w,7);g.fillRect(0,h-7,w,7);g.fillRect(0,0,7,h);g.fillRect(w-7,0,7,h);
+    g.fillStyle="rgba(150,160,170,0.28)";
+    g.fillRect(0,7,w,1);g.fillRect(0,h-8,w,1);g.fillRect(7,0,1,h);g.fillRect(w-8,0,1,h);
+    g.fillStyle="rgba(232,216,150,0.55)";
+    for(let y=24;y<h-24;y+=32){
+      g.fillRect(w/2-2,y,4,16);
+      g.fillRect(y,w/2-2,16,4);
+    }
+  });
+  function facadeTex(base,glowA,glowB,density,cols,rows){
+    return mk(128,128,(g,w,h)=>{
+      g.fillStyle=base;g.fillRect(0,0,w,h);
+      const cw=w/cols, ch=h/rows;
+      for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+        const x=c*cw, y=r*ch;
+        g.fillStyle="rgba(0,0,0,0.42)";g.fillRect(x+2,y+2,cw-4,ch-4);
+        const t=trnd();
+        if(t<density){
+          g.fillStyle=(t<density*0.5)?glowA:glowB;
+          g.fillRect(x+3,y+3,cw-6,ch-6);
+        } else if(t<density+0.14){
+          g.fillStyle="rgba(120,150,170,0.16)";
+          g.fillRect(x+3,y+3,cw-6,ch-6);
+        }
+      }
+      g.fillStyle="rgba(0,0,0,0.5)";
+      for(let r=0;r<=rows;r++)g.fillRect(0,r*ch-1,w,2);
+      noise(g,w,h,70,.22);
+    });
+  }
+  const texFacadeA=facadeTex("#0b1622","#ffd98a","#9fe8ff",0.34,6,8);
+  const texFacadeB=facadeTex("#10202a","#ffd98a","#8fe0c0",0.26,5,7);
+  const texFacadeC=facadeTex("#141018","#ff9a6a","#c9a6ff",0.30,4,9);
+  const texFacadeD=facadeTex("#0a1a1e","#e9f4ff","#7fd8ff",0.40,7,6);
+  const texRoof=mk(64,64,(g,w,h)=>{
+    g.fillStyle="#121a20";g.fillRect(0,0,w,h);
+    g.fillStyle="rgba(0,0,0,0.5)";
+    for(let x=8;x<w-8;x+=18)for(let y=8;y<h-8;y+=18)g.fillRect(x,y,12,12);
+    g.strokeStyle="rgba(90,120,140,0.25)";g.lineWidth=1;
+    g.strokeRect(2.5,2.5,w-5,h-5);
+    noise(g,w,h,60,.3);
+  });
+
+  /* ---------- vectors / camera ---------- */
+
   /* ---------- vectors / camera ---------- */
   const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
   const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
@@ -1435,7 +1490,7 @@ const FPS=(function(){
   const LIGHT=nrm([-0.40,0.82,0.46]);
 
   const P={x:0,y:1.62,z:4.3,yaw:0,pitch:-0.02};
-  const ROOM={hx:6.0,hz:6.0,wall:3.3};
+  const ROOM={hx:6.0,hz:6.0,wall:3.3}; /* superseded by CITY level (kept for compatibility) */
   const EYE=1.62;
 
   function basis(){
@@ -1470,37 +1525,72 @@ const FPS=(function(){
   }
 
   const world=[];
+  const colliders=[];
+  const CITY={ground:46, bound:39, pitch:11.0, plaza:13.0, blocks:3};
+
+  function addBuilding(list,cx,baseY,cz,w,d,dh,tex,roofTex,em){
+    em=(em==null)?0.34:em;
+    const x0=cx-w/2,x1=cx+w/2,z0=cz-d/2,z1=cz+d/2,y0=baseY,y1=baseY+dh;
+    const T=4,uW=Math.max(0.5,w/T),uD=Math.max(0.5,d/T),uH=Math.max(0.5,dh/T);
+    if(tex){
+      list.push(face([[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]],[0,0,1],[255,255,255],{tex:tex,uv:[[0,0],[uW,0],[uW,uH],[0,uH]],em:em}));
+      list.push(face([[x1,y0,z0],[x0,y0,z0],[x0,y1,z0],[x1,y1,z0]],[0,0,-1],[255,255,255],{tex:tex,uv:[[0,0],[uW,0],[uW,uH],[0,uH]],em:em}));
+      list.push(face([[x0,y0,z0],[x0,y0,z1],[x0,y1,z1],[x0,y1,z0]],[-1,0,0],[255,255,255],{tex:tex,uv:[[0,0],[uD,0],[uD,uH],[0,uH]],em:em}));
+      list.push(face([[x1,y0,z1],[x1,y0,z0],[x1,y1,z0],[x1,y1,z1]],[1,0,0],[255,255,255],{tex:tex,uv:[[0,0],[uD,0],[uD,uH],[0,uH]],em:em}));
+    } else {
+      addBox(list,cx,(y0+y1)/2,cz,w,dh,d,[26,66,80],null);
+    }
+    if(roofTex)list.push(face([[x0,y1,z1],[x1,y1,z1],[x1,y1,z0],[x0,y1,z0]],[0,1,0],[255,255,255],{tex:roofTex,uv:[[0,0],[w/T,0],[w/T,d/T],[0,d/T]],em:0.06}));
+    if(baseY<0.01)colliders.push({x0:x0,x1:x1,z0:z0,z1:z1});
+  }
+
+  function buildCity(list){
+    const G=CITY.ground;
+    /* ground / asphalt plane (single quad: fog is per-fragment) */
+    list.push(face([[-G,0,-G],[G,0,-G],[G,0,G],[-G,0,G]],[0,1,0],[255,255,255],{tex:texRoad,uv:[[0,0],[G/4,0],[G/4,G/4],[0,G/4]]}));
+    const B=CITY.pitch, PL=CITY.plaza, N=CITY.blocks;
+    const fac=[texFacadeA,texFacadeB,texFacadeC,texFacadeD];
+    /* City blocks on a street grid: each building sits inside its block, so the
+       gaps between blocks read as streets. Height grows toward the skyline. */
+    for(let i=-N;i<=N;i++)for(let j=-N;j<=N;j++){
+      const cx=i*B, cz=j*B;
+      const dist=Math.hypot(cx,cz);
+      if(dist<PL)continue;                       /* central plaza */
+      if(trnd()<0.09)continue;                   /* vacant lot / small park */
+      const w=4.8+trnd()*2.4, d=4.8+trnd()*2.4;  /* footprint leaves >=3.8u street */
+      const far=Math.min(1,dist/(N*B));
+      let h=10+trnd()*12+(1-far)*38;             /* high-rise skyline toward the core */
+      if(trnd()<0.16)h+=18;                      /* occasional landmark tower */
+      h=Math.min(h,74);
+      const tex=fac[((i+N)*3+(j+N))%fac.length];
+      addBuilding(list,cx,0,cz,w,d,h,tex,texRoof);
+      if(trnd()<0.42)addBuilding(list,cx,h,cz,w*0.42,d*0.42,1.2+trnd()*2.6,texRoof,null,0.05);
+      if(h>34){                                  /* antenna + beacon on tall towers */
+        addBox(list,cx,h+2.7,cz,0.18,5.4,0.18,[34,44,54],null);
+        list.push(face([[cx-0.22,h+5.2,cz-0.22],[cx+0.22,h+5.2,cz-0.22],[cx+0.22,h+5.2,cz+0.22],[cx-0.22,h+5.2,cz+0.22]],[0,1,0],[255,70,80],{em:1}));
+      }
+    }
+    /* street lamps along the plaza avenues (in the street gaps between blocks) */
+    for(let m=0;m<N;m++)for(let sx of [-1,1]){
+      const z=(m+0.5)*B*sx;
+      if(Math.abs(z)<PL*0.6)continue;
+      for(let ax=0;ax<2;ax++){
+        const lx=ax? z:0, lz=ax?0:z;
+        addBox(list,lx-0.9,1.8,lz,0.16,3.6,0.16,[16,34,46],null);
+        addBox(list,lx-0.9,3.66,lz,0.6,0.24,0.6,[40,54,64],null);
+        list.push(face([[lx-1.16,3.54,lz-0.26],[lx-0.64,3.54,lz-0.26],[lx-0.64,3.54,lz+0.26],[lx-1.16,3.54,lz+0.26]],[0,-1,0],[255,228,160],{em:1}));
+      }
+    }
+    /* the core rig at the centre */
+    buildRig(list);
+  }
+
   function buildWorld(){
     world.length=0;
-    const hx=ROOM.hx,hz=ROOM.hz,wy=ROOM.wall;
-    /* floor */
-    world.push(face([[-hx,0,-hz],[hx,0,-hz],[hx,0,hz],[-hx,0,hz]],[0,1,0],[255,255,255],{tex:texFloor,uv:[[0,0],[4,0],[4,4],[0,4]]}));
-    /* ceiling */
-    world.push(face([[-hx,wy,hz],[hx,wy,hz],[hx,wy,-hz],[-hx,wy,-hz]],[0,-1,0],[30,58,70]));
-    /* walls */
-    world.push(face([[-hx,0,hz],[hx,0,hz],[hx,wy,hz],[-hx,wy,hz]],[0,0,-1],[255,255,255],{tex:texWall,uv:[[0,0],[6,0],[6,2],[0,2]]}));
-    world.push(face([[hx,0,-hz],[-hx,0,-hz],[-hx,wy,-hz],[hx,wy,-hz]],[0,0,1],[255,255,255],{tex:texWall,uv:[[0,0],[6,0],[6,2],[0,2]]}));
-    world.push(face([[hx,0,hz],[hx,0,-hz],[hx,wy,-hz],[hx,wy,hz]],[1,0,0],[255,255,255],{tex:texWall,uv:[[0,0],[6,0],[6,2],[0,2]]}));
-    world.push(face([[-hx,0,-hz],[-hx,0,hz],[-hx,wy,hz],[-hx,wy,-hz]],[-1,0,0],[255,255,255],{tex:texWall,uv:[[0,0],[6,0],[6,2],[0,2]]}));
-    /* server racks around the walls */
-    const racks=[[-4.6,-2.2,1.0],[4.6,-2.2,1.0],[-4.6,2.4,1.0],[4.6,2.4,1.0],[-2.2,-5.2,1.6],[2.2,-5.2,1.6]];
-    for(const r of racks){
-      const isX=Math.abs(r[0])>Math.abs(r[1]);
-      if(isX)addBox(world,r[0],0.95,r[1],0.7,1.9,r[2],null,texRack);
-      else addBox(world,r[0],0.95,r[1],r[2],1.9,0.7,null,texRack);
-      /* emissive status strip */
-      const sy=1.75;
-      world.push(face(isX?[[r[0],sy-0.06,r[1]-r[2]/2+0.02],[r[0],sy-0.06,r[1]+r[2]/2-0.02],[r[0],sy+0.06,r[1]+r[2]/2-0.02],[r[0],sy+0.06,r[1]-r[2]/2+0.02]]
-                        :[[r[0]-r[2]/2+0.02,sy-0.06,r[1]],[r[0]+r[2]/2-0.02,sy-0.06,r[1]],[r[0]+r[2]/2-0.02,sy+0.06,r[1]],[r[0]-r[2]/2+0.02,sy+0.06,r[1]]],
-        isX?[Math.sign(r[0]),0,0]:[0,0,Math.sign(r[1])],[90,235,255],{em:1}));
-    }
-    /* corner pillars */
-    for(const px of [-hx+0.7,hx-0.7])for(const pz of [-hz+0.7,hz-0.7]){
-      addBox(world,px,wy/2,pz,0.5,wy,0.5,[20,54,66],texWall);
-    }
-    /* PC rig at the centre */
-    buildRig(world);
+    colliders.length=0;
+    buildCity(world);
   }
+
   function buildRig(list){
     addBox(list,0,0.62,0,1.5,1.05,0.9,[26,66,80],null);
     list.push(face([[-0.62,0.20,0.452],[0.62,0.20,0.452],[0.62,1.05,0.452],[-0.62,1.05,0.452]],[0,0,1],[60,255,170],{em:0.85}));
@@ -1673,10 +1763,30 @@ const FPS=(function(){
     }
   }
 
+  const PRAD=0.34;
   function collide(){
-    const pad=0.34;
-    P.x=Math.max(-ROOM.hx+pad,Math.min(ROOM.hx-pad,P.x));
-    P.z=Math.max(-ROOM.hz+pad,Math.min(ROOM.hz-pad,P.z));
+    /* keep inside the city */
+    const b=CITY.bound-PRAD;
+    P.x=Math.max(-b,Math.min(b,P.x));
+    P.z=Math.max(-b,Math.min(b,P.z));
+    /* player circle vs building AABBs */
+    for(const c of colliders){
+      const qx=Math.max(c.x0,Math.min(P.x,c.x1));
+      const qz=Math.max(c.z0,Math.min(P.z,c.z1));
+      const dx=P.x-qx, dz=P.z-qz, d2=dx*dx+dz*dz;
+      if(d2<PRAD*PRAD){
+        if(d2>1e-8){
+          const dd=Math.sqrt(d2), pu=PRAD-dd;
+          P.x+=dx/dd*pu; P.z+=dz/dd*pu;
+        } else {
+          const l=P.x-c.x0,r=c.x1-P.x,bo=P.z-c.z0,t=c.z1-P.z;
+          const m=Math.min(l,r,bo,t);
+          if(m===l)P.x=c.x0-PRAD; else if(m===r)P.x=c.x1+PRAD;
+          else if(m===bo)P.z=c.z0-PRAD; else P.z=c.z1+PRAD;
+        }
+      }
+    }
+    /* solid core rig box */
     const bx=0.9,bz=1.4,rad=0.35;
     if(Math.abs(P.x)<bx+rad&&Math.abs(P.z)<bz+rad){
       const ox=(bx+rad)-Math.abs(P.x), oz=(bz+rad)-Math.abs(P.z);
